@@ -16,6 +16,10 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
   const frontendUrl = configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+  const allowedOrigins = [
+    ...frontendUrl.split(',').map((u) => u.trim()),
+    'http://localhost:3000',
+  ];
 
   // Security
   app.use(helmet({
@@ -25,7 +29,7 @@ async function bootstrap() {
 
   // CORS
   app.enableCors({
-    origin: [frontendUrl, 'http://localhost:3000'],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Company-ID'],
