@@ -36,6 +36,22 @@ export class UsersService {
       throw new ForbiddenException('Cannot create users for other companies');
     }
 
+    // Only SUPER_ADMIN can create TECHNICIAN or SUPER_ADMIN users
+    if (
+      (dto.role === UserRole.TECHNICIAN || dto.role === UserRole.SUPER_ADMIN) &&
+      requestingUser.role !== UserRole.SUPER_ADMIN
+    ) {
+      throw new ForbiddenException('Solo el super administrador puede crear técnicos');
+    }
+
+    // TECHNICIAN and SUPER_ADMIN must belong to the main company (Elemental Pro)
+    if (dto.role === UserRole.TECHNICIAN || dto.role === UserRole.SUPER_ADMIN) {
+      const mainCompany = await this.prisma.company.findFirst({ where: { slug: 'elementalpro' } });
+      if (!mainCompany || dto.companyId !== mainCompany.id) {
+        throw new BadRequestException('Los técnicos y super administradores solo pueden pertenecer a Elemental Pro');
+      }
+    }
+
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
     if (existing) throw new ConflictException('Email already in use');
 

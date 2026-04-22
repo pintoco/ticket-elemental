@@ -96,6 +96,8 @@ ticket/
 
 **Técnicos**: `getTechnicians()` NO filtra por companyId — devuelve todos los TECHNICIAN/SUPER_ADMIN del sistema (siempre son de Elemental Pro). Esto permite que empresas cliente asignen tickets a técnicos de Elemental Pro.
 
+**Creación de técnicos**: Solo `SUPER_ADMIN` puede crear usuarios con rol `TECHNICIAN` o `SUPER_ADMIN` (el backend lanza `ForbiddenException` si otro rol lo intenta). Además, estos usuarios solo pueden pertenecer a la empresa principal (slug `elementalpro`) — validado también en backend. El frontend refuerza esto: la opción "Técnico" solo aparece en el dropdown para SUPER_ADMIN, y al seleccionarla el selector de empresa se auto-fija a Elemental Pro y se deshabilita.
+
 ---
 
 ## Patrones importantes

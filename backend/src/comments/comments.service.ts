@@ -116,6 +116,36 @@ export class CommentsService {
     });
   }
 
+  async addAttachments(commentId: string, files: Express.Multer.File[], requestingUser: any) {
+    const comment = await this.prisma.ticketComment.findUnique({
+      where: { id: commentId },
+      include: { ticket: true },
+    });
+    if (!comment) throw new NotFoundException('Comment not found');
+
+    if (
+      requestingUser.role !== UserRole.SUPER_ADMIN &&
+      comment.ticket.companyId !== requestingUser.companyId
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return Promise.all(
+      files.map((file) =>
+        this.prisma.attachment.create({
+          data: {
+            filename: file.filename,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+            url: `/uploads/${file.filename}`,
+            commentId,
+          },
+        }),
+      ),
+    );
+  }
+
   async remove(id: string, requestingUser: any) {
     const comment = await this.prisma.ticketComment.findUnique({ where: { id } });
     if (!comment) throw new NotFoundException('Comment not found');

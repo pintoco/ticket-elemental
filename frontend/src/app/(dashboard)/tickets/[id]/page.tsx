@@ -6,10 +6,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Edit2, Send, Lock, Unlock, MapPin,
   Camera, Server, Clock, User, Building2, Tag,
-  CheckCircle2, AlertTriangle
+  CheckCircle2, AlertTriangle, ImageIcon, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { ticketsApi, commentsApi } from '@/lib/api';
+import { ticketsApi, commentsApi, API_BASE_URL } from '@/lib/api';
 import {
   STATUS_CONFIG, PRIORITY_CONFIG, CATEGORY_CONFIG, TYPE_CONFIG,
   formatDate, formatRelativeDate, getInitials, cn
@@ -33,6 +33,8 @@ export default function TicketDetailPage() {
   const { user } = useAuthStore();
   const [comment, setComment] = useState('');
   const [isInternal, setIsInternal] = useState(false);
+  const [commentImages, setCommentImages] = useState<File[]>([]);
+  const [commentPreviews, setCommentPreviews] = useState<string[]>([]);
 
   const { data: ticket, isLoading } = useQuery({
     queryKey: ['ticket', id],
@@ -50,14 +52,43 @@ export default function TicketDetailPage() {
   });
 
   const commentMutation = useMutation({
-    mutationFn: () => commentsApi.create(id, { content: comment, isInternal }),
+    mutationFn: async () => {
+      const res = await commentsApi.create(id, { content: comment, isInternal });
+      const commentId = res.data.data.id;
+      if (commentImages.length > 0) {
+        await commentsApi.uploadAttachments(id, commentId, commentImages);
+      }
+      return res;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket', id] });
       setComment('');
+      setCommentImages([]);
+      setCommentPreviews([]);
       toast.success('Comentario agregado');
     },
     onError: () => toast.error('Error al agregar comentario'),
   });
+
+  const handleCommentImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = 5 - commentImages.length;
+    const toAdd = files.slice(0, remaining);
+    setCommentImages((prev) => [...prev, ...toAdd]);
+    toAdd.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setCommentPreviews((prev) => [...prev, ev.target?.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removeCommentImage = (index: number) => {
+    setCommentImages((prev) => prev.filter((_, i) => i !== index));
+    setCommentPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleStatusChange = (newStatus: TicketStatus) => {
     updateMutation.mutate({ status: newStatus });
@@ -126,6 +157,32 @@ export default function TicketDetailPage() {
             </p>
           </div>
 
+          {/* Attachments */}
+          {ticket.attachments && ticket.attachments.length > 0 && (
+            <div className="card p-5">
+              <h2 className="text-sm font-semibold text-gray-700 mb-3">
+                Imágenes adjuntas ({ticket.attachments.length})
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {ticket.attachments.map((att: any) => (
+                  <a
+                    key={att.id}
+                    href={`${API_BASE_URL}${att.url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block aspect-square rounded-lg overflow-hidden border border-gray-200 hover:opacity-80 transition-opacity"
+                  >
+                    <img
+                      src={`${API_BASE_URL}${att.url}`}
+                      alt={att.originalName}
+                      className="w-full h-full object-cover"
+                    />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Comments / Chat */}
           <div className="card">
             <div className="p-4 border-b border-gray-100">
@@ -167,6 +224,25 @@ export default function TicketDetailPage() {
                         <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                           {c.content}
                         </p>
+                        {c.attachments && c.attachments.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {c.attachments.map((att: any) => (
+                              <a
+                                key={att.id}
+                                href={`${API_BASE_URL}${att.url}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block w-20 h-20 rounded-lg overflow-hidden border border-gray-200 hover:opacity-80 transition-opacity flex-shrink-0"
+                              >
+                                <img
+                                  src={`${API_BASE_URL}${att.url}`}
+                                  alt={att.originalName}
+                                  className="w-full h-full object-cover"
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -184,23 +260,59 @@ export default function TicketDetailPage() {
                   rows={3}
                   className="input resize-none"
                 />
-                <div className="flex items-center justify-between">
-                  {isStaff && (
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isInternal}
-                        onChange={(e) => setIsInternal(e.target.checked)}
-                        className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                      />
-                      <span className="text-xs text-gray-600">Nota interna</span>
-                      <Lock className="w-3 h-3 text-gray-400" />
-                    </label>
-                  )}
+                {/* Comment image previews */}
+                {commentPreviews.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {commentPreviews.map((preview, i) => (
+                      <div key={i} className="relative group w-16 h-16">
+                        <img
+                          src={preview}
+                          alt={`imagen ${i + 1}`}
+                          className="w-full h-full object-cover rounded-lg border border-gray-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeCommentImage(i)}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    {isStaff && (
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isInternal}
+                          onChange={(e) => setIsInternal(e.target.checked)}
+                          className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        <span className="text-xs text-gray-600">Nota interna</span>
+                        <Lock className="w-3 h-3 text-gray-400" />
+                      </label>
+                    )}
+                    {commentImages.length < 5 && (
+                      <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer hover:text-brand-600 transition-colors">
+                        <ImageIcon className="w-4 h-4" />
+                        <span>Imagen {commentImages.length > 0 ? `(${commentImages.length}/5)` : ''}</span>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                          multiple
+                          onChange={handleCommentImageSelect}
+                        />
+                      </label>
+                    )}
+                  </div>
                   <button
                     type="submit"
                     disabled={!comment.trim() || commentMutation.isPending}
-                    className="btn-primary ml-auto"
+                    className="btn-primary"
                   >
                     <Send className="w-4 h-4" />
                     {commentMutation.isPending ? 'Enviando...' : 'Comentar'}

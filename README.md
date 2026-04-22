@@ -104,7 +104,7 @@ ticket/
 
 **auth** — Autenticación JWT con refresh tokens. Estrategias Passport para JWT y refresh. Guards globales para autenticación y roles.
 
-**users** — CRUD completo con aislamiento multi-tenant. Hash bcrypt de contraseñas. Cambio de contraseña. Gestión de técnicos disponibles.
+**users** — CRUD completo con aislamiento multi-tenant. Hash bcrypt de contraseñas. Cambio de contraseña. Gestión de técnicos disponibles. Los roles TECHNICIAN y SUPER_ADMIN solo pueden pertenecer a Elemental Pro (validado en backend y restringido en frontend).
 
 **companies** — Gestión multi-empresa. Cada empresa tiene sus propios usuarios y tickets completamente aislados. Solo SUPER_ADMIN puede crear empresas.
 
@@ -132,7 +132,7 @@ ticket/
 
 **New Ticket** — Formulario completo con campos técnicos especializados. Asignación de técnico. Sistema de etiquetas.
 
-**Users** — Gestión de usuarios con activación/desactivación. Creación con modal. Filtro por búsqueda.
+**Users** — Gestión de usuarios con activación/desactivación. Creación con modal. Filtro por búsqueda. Solo SUPER_ADMIN puede crear Técnicos (siempre asignados a Elemental Pro).
 
 **Companies** — Vista de empresas con estadísticas de usuarios y tickets.
 
@@ -140,13 +140,15 @@ ticket/
 
 ## Roles y permisos
 
-| Rol | Puede crear tickets | Puede editar | Puede ver todo | Gestión usuarios | Gestión empresas |
-|-----|---------------------|--------------|----------------|------------------|------------------|
-| SUPER_ADMIN | ✅ | ✅ | ✅ | ✅ | ✅ |
-| ADMIN | ✅ | ✅ | ✅ (su empresa) | ✅ (su empresa) | ❌ |
-| TECHNICIAN | ✅ | ✅ (asignados) | Solo asignados | ❌ | ❌ |
-| OPERATOR | ✅ | ❌ | Su empresa | ❌ | ❌ |
-| CLIENT | ✅ | ❌ | Propios | ❌ | ❌ |
+| Rol | Empresa | Puede crear tickets | Puede editar | Puede ver todo | Gestión usuarios | Gestión empresas |
+|-----|---------|---------------------|--------------|----------------|------------------|------------------|
+| SUPER_ADMIN | Elemental Pro | ✅ | ✅ | ✅ | ✅ | ✅ |
+| ADMIN | Cualquiera | ✅ | ✅ | ✅ (su empresa) | ✅ (su empresa) | ❌ |
+| TECHNICIAN | **Solo Elemental Pro** | ✅ | ✅ (asignados) | Solo asignados | ❌ | ❌ |
+| OPERATOR | Empresa cliente | ✅ | ❌ | Su empresa | ❌ | ❌ |
+| CLIENT | Empresa cliente | ✅ | ❌ | Propios | ❌ | ❌ |
+
+> **Nota**: Los roles `TECHNICIAN` y `SUPER_ADMIN` solo pueden pertenecer a Elemental Pro. El backend rechaza cualquier intento de crearlos en otra empresa. En el frontend, solo el SUPER_ADMIN ve la opción "Técnico" y la empresa se fija automáticamente a Elemental Pro.
 
 ---
 

@@ -1,7 +1,8 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import Cookies from 'js-cookie';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = API_BASE_URL;
 
 export const api = axios.create({
   baseURL: `${API_URL}/api/v1`,
@@ -102,6 +103,13 @@ export const ticketsApi = {
   update: (id: string, data: any) => api.patch(`/tickets/${id}`, data),
   delete: (id: string) => api.delete(`/tickets/${id}`),
   getMyTickets: () => api.get('/tickets/my-tickets'),
+  uploadAttachments: (ticketId: string, files: File[]) => {
+    const formData = new FormData();
+    files.forEach((f) => formData.append('images', f));
+    return api.post(`/tickets/${ticketId}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // Comments endpoints
@@ -112,6 +120,13 @@ export const commentsApi = {
     api.patch(`/tickets/${ticketId}/comments/${commentId}`, { content }),
   delete: (ticketId: string, commentId: string) =>
     api.delete(`/tickets/${ticketId}/comments/${commentId}`),
+  uploadAttachments: (ticketId: string, commentId: string, files: File[]) => {
+    const formData = new FormData();
+    files.forEach((f) => formData.append('images', f));
+    return api.post(`/tickets/${ticketId}/comments/${commentId}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // Users endpoints

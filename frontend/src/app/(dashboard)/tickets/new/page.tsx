@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Plus, X } from 'lucide-react';
+import { ArrowLeft, Plus, X, ImageIcon } from 'lucide-react';
 import { ticketsApi, usersApi, companiesApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,8 @@ export default function NewTicketPage() {
   const { user } = useAuthStore();
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [images, setImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -57,14 +59,19 @@ export default function NewTicketPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: FormData) =>
-      ticketsApi.create({
+    mutationFn: async (data: FormData) => {
+      const res = await ticketsApi.create({
         ...data,
         tags,
         assignedToId: data.assignedToId || undefined,
         companyId: data.companyId || undefined,
         scheduledAt: data.scheduledAt || undefined,
-      }),
+      });
+      if (images.length > 0) {
+        await ticketsApi.uploadAttachments(res.data.data.id, images);
+      }
+      return res;
+    },
     onSuccess: (res) => {
       toast.success('Ticket creado exitosamente');
       router.push(`/tickets/${res.data.data.id}`);
@@ -73,6 +80,26 @@ export default function NewTicketPage() {
       toast.error(error.response?.data?.message || 'Error al crear ticket');
     },
   });
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = 5 - images.length;
+    const toAdd = files.slice(0, remaining);
+    setImages((prev) => [...prev, ...toAdd]);
+    toAdd.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setImagePreviews((prev) => [...prev, ev.target?.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const addTag = () => {
     const tag = tagInput.trim().toLowerCase().replace(/\s+/g, '-');
@@ -280,6 +307,49 @@ export default function NewTicketPage() {
               </span>
             ))}
           </div>
+        </div>
+
+        {/* Images */}
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold text-gray-700 pb-2 border-b mb-4">
+            Imágenes <span className="font-normal text-gray-400">({images.length}/5)</span>
+          </h2>
+          {images.length < 5 && (
+            <label className="block cursor-pointer">
+              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-brand-400 transition-colors">
+                <ImageIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">Haz clic para seleccionar imágenes</p>
+                <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP o GIF · Máx. 5 MB por imagen</p>
+              </div>
+              <input
+                type="file"
+                className="hidden"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                multiple
+                onChange={handleImageSelect}
+              />
+            </label>
+          )}
+          {imagePreviews.length > 0 && (
+            <div className="grid grid-cols-5 gap-2 mt-3">
+              {imagePreviews.map((preview, i) => (
+                <div key={i} className="relative group aspect-square">
+                  <img
+                    src={preview}
+                    alt={`imagen ${i + 1}`}
+                    className="w-full h-full object-cover rounded-lg border border-gray-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Submit */}

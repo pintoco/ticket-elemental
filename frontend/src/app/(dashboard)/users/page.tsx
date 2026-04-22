@@ -14,11 +14,15 @@ export default function UsersPage() {
   const { user: currentUser } = useAuthStore();
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleteName, setConfirmDeleteName] = useState('');
   const [form, setForm] = useState({
-    email: '', firstName: '', lastName: '', role: 'TECHNICIAN',
+    email: '', firstName: '', lastName: '', role: 'OPERATOR',
     companyId: currentUser?.companyId || '', password: 'Temporal1234!', phone: ''
+  });
+  const [editForm, setEditForm] = useState({
+    firstName: '', lastName: '', phone: '', role: '',
   });
 
   const { data: users, isLoading } = useQuery({
@@ -38,9 +42,19 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success('Usuario creado exitosamente');
       setShowModal(false);
-      setForm({ email: '', firstName: '', lastName: '', role: 'TECHNICIAN', companyId: currentUser?.companyId || '', password: 'Temporal1234!', phone: '' });
+      setForm({ email: '', firstName: '', lastName: '', role: 'OPERATOR', companyId: currentUser?.companyId || '', password: 'Temporal1234!', phone: '' });
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Error al crear usuario'),
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => usersApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Usuario actualizado');
+      setEditingUser(null);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Error al actualizar usuario'),
   });
 
   const toggleMutation = useMutation({
@@ -65,12 +79,19 @@ export default function UsersPage() {
     },
   });
 
+  const openEdit = (u: User) => {
+    setEditForm({ firstName: u.firstName, lastName: u.lastName, phone: u.phone || '', role: u.role });
+    setEditingUser(u);
+  };
+
   const filteredUsers = users?.filter(
     (u) =>
       u.firstName.toLowerCase().includes(search.toLowerCase()) ||
       u.lastName.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase()),
   );
+
+  const isMainCompanyRole = (role: string) => role === 'TECHNICIAN' || role === 'SUPER_ADMIN';
 
   return (
     <div className="space-y-5">
@@ -154,6 +175,13 @@ export default function UsersPage() {
                     {currentUser?.id !== u.id && ['SUPER_ADMIN', 'ADMIN'].includes(currentUser?.role || '') && (
                       <div className="flex items-center gap-1">
                         <button
+                          onClick={() => openEdit(u)}
+                          className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg text-brand-600 hover:bg-brand-50 transition-colors"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          Editar
+                        </button>
+                        <button
                           onClick={() => toggleMutation.mutate({ id: u.id, isActive: !u.isActive })}
                           className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg transition-colors
                             ${u.isActive
@@ -216,6 +244,79 @@ export default function UsersPage() {
         </div>
       )}
 
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Editar Usuario</h2>
+            <p className="text-sm text-gray-500 mb-4">{editingUser.email}</p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Nombre *</label>
+                  <input
+                    className="input"
+                    value={editForm.firstName}
+                    onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label">Apellido *</label>
+                  <input
+                    className="input"
+                    value={editForm.lastName}
+                    onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="label">Teléfono</label>
+                <input
+                  className="input"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  placeholder="+56912345678"
+                />
+              </div>
+              <div>
+                <label className="label">Rol *</label>
+                <select
+                  className="select"
+                  value={editForm.role}
+                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                  disabled={
+                    currentUser?.role !== 'SUPER_ADMIN' &&
+                    (isMainCompanyRole(editForm.role) || isMainCompanyRole(editingUser.role))
+                  }
+                >
+                  <option value="OPERATOR">Operador</option>
+                  <option value="CLIENT">Cliente</option>
+                  <option value="ADMIN">Administrador</option>
+                  {currentUser?.role === 'SUPER_ADMIN' && (
+                    <>
+                      <option value="TECHNICIAN">Técnico</option>
+                      <option value="SUPER_ADMIN">Super Admin</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setEditingUser(null)} className="btn-secondary flex-1">
+                Cancelar
+              </button>
+              <button
+                onClick={() => editMutation.mutate({ id: editingUser.id, data: editForm })}
+                disabled={editMutation.isPending}
+                className="btn-primary flex-1"
+              >
+                {editMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create User Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -258,13 +359,20 @@ export default function UsersPage() {
                   <select
                     className="select"
                     value={form.role}
-                    onChange={(e) => setForm({ ...form, role: e.target.value })}
+                    onChange={(e) => {
+                      const newRole = e.target.value;
+                      setForm({
+                        ...form,
+                        role: newRole,
+                        companyId: isMainCompanyRole(newRole) ? (currentUser?.companyId || '') : form.companyId,
+                      });
+                    }}
                   >
-                    <option value="TECHNICIAN">Técnico</option>
                     <option value="OPERATOR">Operador</option>
                     <option value="CLIENT">Cliente</option>
                     {currentUser?.role === 'SUPER_ADMIN' && (
                       <>
+                        <option value="TECHNICIAN">Técnico</option>
                         <option value="ADMIN">Administrador</option>
                         <option value="SUPER_ADMIN">Super Admin</option>
                       </>
@@ -277,12 +385,16 @@ export default function UsersPage() {
                     <select
                       className="select"
                       value={form.companyId}
+                      disabled={isMainCompanyRole(form.role)}
                       onChange={(e) => setForm({ ...form, companyId: e.target.value })}
                     >
                       {companies.map((c: any) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
+                    {isMainCompanyRole(form.role) && (
+                      <p className="text-xs text-gray-400 mt-1">Siempre pertenecen a Elemental Pro</p>
+                    )}
                   </div>
                 )}
               </div>

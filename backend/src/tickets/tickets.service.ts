@@ -259,6 +259,30 @@ export class TicketsService {
     });
   }
 
+  async addAttachments(ticketId: string, files: Express.Multer.File[], requestingUser: any) {
+    const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
+    if (!ticket) throw new NotFoundException('Ticket not found');
+
+    if (requestingUser.role !== UserRole.SUPER_ADMIN && ticket.companyId !== requestingUser.companyId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return Promise.all(
+      files.map((file) =>
+        this.prisma.attachment.create({
+          data: {
+            filename: file.filename,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+            url: `/uploads/${file.filename}`,
+            ticketId,
+          },
+        }),
+      ),
+    );
+  }
+
   private getTicketIncludes() {
     return {
       company: { select: { id: true, name: true, slug: true } },

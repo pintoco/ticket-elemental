@@ -59,6 +59,18 @@ export class TicketsController {
     return this.ticketsService.update(id, dto, user);
   }
 
+  @Post(':id/attachments')
+  @UseInterceptors(FilesInterceptor('images', 5))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload up to 5 images to a ticket' })
+  addAttachments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @CurrentUser() user: any,
+  ) {
+    return this.ticketsService.addAttachments(id, files, user);
+  }
+
   @Delete(':id')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @ApiOperation({ summary: 'Delete a ticket' })
