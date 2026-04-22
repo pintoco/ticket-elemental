@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -62,6 +63,27 @@ export class CompaniesService {
     if (!company) throw new NotFoundException('Company not found');
 
     return this.prisma.company.update({ where: { id }, data: dto });
+  }
+
+  async remove(id: string, requestingUser: any) {
+    if (requestingUser.role !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Solo SUPER_ADMIN puede eliminar empresas');
+    }
+
+    const company = await this.prisma.company.findUnique({
+      where: { id },
+      include: { _count: { select: { users: true, tickets: true } } },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+
+    if (company._count.users > 0 || company._count.tickets > 0) {
+      throw new BadRequestException(
+        `No se puede eliminar: la empresa tiene ${company._count.users} usuario(s) y ${company._count.tickets} ticket(s) asociados.`,
+      );
+    }
+
+    await this.prisma.company.delete({ where: { id } });
+    return { message: 'Empresa eliminada exitosamente' };
   }
 
   async getStats(requestingUser: any) {

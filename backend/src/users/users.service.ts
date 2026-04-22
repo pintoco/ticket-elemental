@@ -131,14 +131,24 @@ export class UsersService {
   }
 
   async remove(id: string, requestingUser: any) {
-    if (id === requestingUser.id) throw new BadRequestException('Cannot delete your own account');
+    if (id === requestingUser.id) throw new BadRequestException('No puedes eliminar tu propia cuenta');
     await this.findOne(id, requestingUser);
 
-    await this.prisma.user.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    if (requestingUser.role === UserRole.SUPER_ADMIN) {
+      const user = await this.prisma.user.findUnique({
+        where: { id },
+        include: { _count: { select: { createdTickets: true, comments: true } } },
+      });
+      if (user._count.createdTickets > 0 || user._count.comments > 0) {
+        throw new BadRequestException(
+          `No se puede eliminar: el usuario tiene ${user._count.createdTickets} ticket(s) y/o comentarios asociados. Desactívalo en su lugar.`,
+        );
+      }
+      await this.prisma.user.delete({ where: { id } });
+      return { message: 'Usuario eliminado exitosamente' };
+    }
 
-    return { message: 'User deactivated successfully' };
+    await this.prisma.user.update({ where: { id }, data: { isActive: false } });
+    return { message: 'Usuario desactivado exitosamente' };
   }
 }

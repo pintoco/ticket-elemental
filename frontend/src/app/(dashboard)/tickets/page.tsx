@@ -1,14 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { Plus, Search, Filter, ChevronLeft, ChevronRight, Eye, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, ChevronLeft, ChevronRight, Eye, RefreshCw, Trash2 } from 'lucide-react';
 import { ticketsApi } from '@/lib/api';
 import {
   STATUS_CONFIG, PRIORITY_CONFIG, CATEGORY_CONFIG, TYPE_CONFIG,
   formatDate, formatRelativeDate, cn
 } from '@/lib/utils';
+import { useAuthStore } from '@/store/auth.store';
+import toast from 'react-hot-toast';
 import type { Ticket, TicketStatus, TicketPriority, TicketCategory } from '@/types';
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
@@ -40,13 +42,30 @@ const CATEGORY_OPTIONS = [
 ];
 
 export default function TicketsPage() {
+  const { user: currentUser } = useAuthStore();
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [priority, setPriority] = useState('');
   const [category, setCategory] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleteTitle, setConfirmDeleteTitle] = useState('');
   const limit = 20;
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => ticketsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      toast.success('Ticket eliminado');
+      setConfirmDeleteId(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Error al eliminar ticket');
+      setConfirmDeleteId(null);
+    },
+  });
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['tickets', { page, search, status, priority, category }],
@@ -285,13 +304,23 @@ export default function TicketsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/tickets/${ticket.id}`}
-                          className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          Ver
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/tickets/${ticket.id}`}
+                            className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Ver
+                          </Link>
+                          {currentUser?.role === 'SUPER_ADMIN' && (
+                            <button
+                              onClick={() => { setConfirmDeleteId(ticket.id); setConfirmDeleteTitle(ticket.title); }}
+                              className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -326,6 +355,38 @@ export default function TicketsPage() {
           </div>
         )}
       </div>
+      {/* Confirm Delete Modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmDeleteId(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">Eliminar ticket</h3>
+                <p className="text-sm text-gray-500 line-clamp-1">{confirmDeleteTitle}</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-5">
+              Esta acción eliminará el ticket y todos sus comentarios de forma permanente.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDeleteId(null)} className="btn-secondary flex-1">
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate(confirmDeleteId)}
+                disabled={deleteMutation.isPending}
+                className="btn-danger flex-1"
+              >
+                {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CompaniesService } from './companies.service';
@@ -35,6 +35,13 @@ export class CompaniesController {
   @ApiOperation({ summary: 'Get a company by ID' })
   findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
     return this.companiesService.findOne(id, user);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Delete a company' })
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
+    return this.companiesService.remove(id, user);
   }
 
   @Patch(':id')

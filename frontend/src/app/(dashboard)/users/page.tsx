@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, UserCheck, UserX, Edit2, Shield } from 'lucide-react';
+import { Plus, Search, UserCheck, UserX, Edit2, Shield, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usersApi, companiesApi } from '@/lib/api';
 import { ROLE_CONFIG, formatDate, getInitials } from '@/lib/utils';
@@ -14,6 +14,8 @@ export default function UsersPage() {
   const { user: currentUser } = useAuthStore();
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleteName, setConfirmDeleteName] = useState('');
   const [form, setForm] = useState({
     email: '', firstName: '', lastName: '', role: 'TECHNICIAN',
     companyId: currentUser?.companyId || '', password: 'Temporal1234!', phone: ''
@@ -47,6 +49,19 @@ export default function UsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success('Usuario actualizado');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => usersApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Usuario eliminado');
+      setConfirmDeleteId(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Error al eliminar usuario');
+      setConfirmDeleteId(null);
     },
   });
 
@@ -137,17 +152,28 @@ export default function UsersPage() {
                   </td>
                   <td className="px-4 py-3">
                     {currentUser?.id !== u.id && ['SUPER_ADMIN', 'ADMIN'].includes(currentUser?.role || '') && (
-                      <button
-                        onClick={() => toggleMutation.mutate({ id: u.id, isActive: !u.isActive })}
-                        className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg transition-colors
-                          ${u.isActive
-                            ? 'text-red-600 hover:bg-red-50'
-                            : 'text-green-600 hover:bg-green-50'
-                          }`}
-                      >
-                        {u.isActive ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
-                        {u.isActive ? 'Desactivar' : 'Activar'}
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => toggleMutation.mutate({ id: u.id, isActive: !u.isActive })}
+                          className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg transition-colors
+                            ${u.isActive
+                              ? 'text-amber-600 hover:bg-amber-50'
+                              : 'text-green-600 hover:bg-green-50'
+                            }`}
+                        >
+                          {u.isActive ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                          {u.isActive ? 'Desactivar' : 'Activar'}
+                        </button>
+                        {currentUser?.role === 'SUPER_ADMIN' && (
+                          <button
+                            onClick={() => { setConfirmDeleteId(u.id); setConfirmDeleteName(`${u.firstName} ${u.lastName}`); }}
+                            className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -156,6 +182,39 @@ export default function UsersPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Confirm Delete Modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmDeleteId(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">Eliminar usuario</h3>
+                <p className="text-sm text-gray-500">{confirmDeleteName}</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-5">
+              Esta acción es permanente. Si el usuario tiene tickets o comentarios asociados, se mostrará un error y deberás desactivarlo en su lugar.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDeleteId(null)} className="btn-secondary flex-1">
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate(confirmDeleteId)}
+                disabled={deleteMutation.isPending}
+                className="btn-danger flex-1"
+              >
+                {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create User Modal */}
       {showModal && (

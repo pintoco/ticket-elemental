@@ -130,6 +130,7 @@ export const companiesApi = {
   getById: (id: string) => api.get(`/companies/${id}`),
   create: (data: any) => api.post('/companies', data),
   update: (id: string, data: any) => api.patch(`/companies/${id}`, data),
+  delete: (id: string) => api.delete(`/companies/${id}`),
   getStats: () => api.get('/companies/stats'),
 };
 

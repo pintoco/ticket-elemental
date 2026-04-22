@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Building2, Users, Ticket, Globe, Phone, MapPin, Plus, Pencil, X, Wrench } from 'lucide-react';
+import { Building2, Users, Ticket, Globe, Phone, MapPin, Plus, Pencil, X, Wrench, Trash2 } from 'lucide-react';
 import { companiesApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import toast from 'react-hot-toast';
@@ -42,6 +42,8 @@ export default function CompaniesPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<any | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleteName, setConfirmDeleteName] = useState('');
   const [form, setForm] = useState<CompanyForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<CompanyForm>>({});
 
@@ -64,6 +66,19 @@ export default function CompaniesPage() {
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.message || 'Error al crear empresa');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => companiesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      toast.success('Empresa eliminada');
+      setConfirmDeleteId(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Error al eliminar empresa');
+      setConfirmDeleteId(null);
     },
   });
 
@@ -258,21 +273,63 @@ export default function CompaniesPage() {
                   </div>
                 )}
 
-                {/* Edit button */}
+                {/* Actions */}
                 {canEdit && (isSuperAdmin || company.id === user?.companyId) && (
-                  <div className="mt-4 pt-3 border-t border-gray-100">
+                  <div className="mt-4 pt-3 border-t border-gray-100 flex gap-2">
                     <button
                       onClick={() => openEdit(company)}
-                      className="w-full flex items-center justify-center gap-2 text-sm text-gray-600 hover:text-brand-600 hover:bg-brand-50 rounded-lg py-1.5 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-2 text-sm text-gray-600 hover:text-brand-600 hover:bg-brand-50 rounded-lg py-1.5 transition-colors"
                     >
                       <Pencil className="w-3.5 h-3.5" />
-                      Editar empresa
+                      Editar
                     </button>
+                    {isSuperAdmin && !isProvider && (
+                      <button
+                        onClick={() => { setConfirmDeleteId(company.id); setConfirmDeleteName(company.name); }}
+                        className="flex-1 flex items-center justify-center gap-2 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg py-1.5 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Eliminar
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Confirm Delete Modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmDeleteId(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">Eliminar empresa</h3>
+                <p className="text-sm text-gray-500">{confirmDeleteName}</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-5">
+              Esta acción es permanente. Solo es posible eliminar empresas sin usuarios ni tickets asociados.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDeleteId(null)} className="btn-secondary flex-1">
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate(confirmDeleteId)}
+                disabled={deleteMutation.isPending}
+                className="btn-danger flex-1"
+              >
+                {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
