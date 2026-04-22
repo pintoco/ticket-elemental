@@ -39,10 +39,10 @@ ticket/
 ├── backend/src/
 │   ├── auth/           # JWT + Refresh tokens, guards globales
 │   ├── users/          # CRUD usuarios, multi-tenant
-│   ├── companies/      # Multi-empresa, create/update
+│   ├── companies/      # Multi-empresa, create/update/delete
 │   ├── tickets/        # Core: estados, prioridades, SLA
 │   ├── comments/       # Chat con notas internas
-│   ├── dashboard/      # Métricas en tiempo real
+│   ├── dashboard/      # Métricas en tiempo real (filtradas por empresa)
 │   ├── notifications/  # Notificaciones internas
 │   ├── audit-logs/     # Registro de acciones
 │   ├── common/         # Decorators, guards, filters, interceptors
@@ -55,12 +55,15 @@ ticket/
 └── frontend/src/
     ├── app/(auth)/login/
     ├── app/(dashboard)/
-    │   ├── dashboard/      # KPIs + gráficos Recharts
-    │   ├── tickets/        # Lista, detalle, nuevo
-    │   ├── companies/      # Gestión empresas con create/edit modal
-    │   ├── users/          # Gestión usuarios
+    │   ├── dashboard/          # KPIs + gráficos Recharts (datos filtrados por empresa)
+    │   ├── tickets/            # Lista (ordenada por ticketNumber desc), detalle, nuevo, editar
+    │   │   └── [id]/
+    │   │       ├── page.tsx    # Vista detalle con cambio de estado y comentarios
+    │   │       └── edit/       # Formulario de edición pre-cargado
+    │   ├── companies/          # Gestión empresas con create/edit/delete modal
+    │   ├── users/              # Gestión usuarios con create/delete
     │   ├── notifications/
-    │   └── settings/       # Perfil + cambio contraseña
+    │   └── settings/           # Perfil + cambio contraseña
     ├── components/layout/  # Sidebar, Header
     ├── lib/
     │   ├── api.ts          # Axios + interceptor refresh token
@@ -75,11 +78,11 @@ ticket/
 
 | Rol | Descripción |
 |-----|-------------|
-| `SUPER_ADMIN` | Acceso total, pertenece a Elemental Pro, gestiona todas las empresas |
-| `ADMIN` | Gestiona su propia empresa y usuarios |
-| `TECHNICIAN` | Atiende tickets asignados (pertenece a Elemental Pro) |
-| `OPERATOR` | Crea tickets, ve los de su empresa |
-| `CLIENT` | Solo ve sus propios tickets |
+| `SUPER_ADMIN` | Acceso total, pertenece a Elemental Pro, gestiona todas las empresas. Puede eliminar usuarios, empresas y tickets. |
+| `ADMIN` | Gestiona su propia empresa y usuarios. Puede desactivar usuarios. |
+| `TECHNICIAN` | Atiende tickets asignados (pertenece a Elemental Pro). Puede editar tickets. |
+| `OPERATOR` | Crea tickets, ve los de su empresa. Solo ve datos de su empresa en dashboard. |
+| `CLIENT` | Solo ve sus propios tickets. |
 
 ---
 
@@ -89,6 +92,8 @@ ticket/
 - `SUPER_ADMIN` → sin filtro de companyId
 - Todos los demás → `where: { companyId: requestingUser.companyId }`
 - `TECHNICIAN` en tickets → `where: { assignedToId: requestingUser.id }`
+
+**Técnicos**: `getTechnicians()` NO filtra por companyId — devuelve todos los TECHNICIAN/SUPER_ADMIN del sistema (siempre son de Elemental Pro). Esto permite que empresas cliente asignen tickets a técnicos de Elemental Pro.
 
 ---
 
@@ -123,6 +128,7 @@ Sidebar usa `#0f172a` (sidebar-900 en config).
 // api.ts exporta:
 authApi, ticketsApi, commentsApi, usersApi, companiesApi, dashboardApi, notificationsApi
 
+// companiesApi incluye: getAll, getById, create, update, delete, getStats
 // El interceptor maneja automáticamente refresh de tokens en 401
 // Tokens se leen de cookies: 'accessToken', 'refreshToken'
 ```
@@ -132,6 +138,22 @@ authApi, ticketsApi, commentsApi, usersApi, companiesApi, dashboardApi, notifica
 const { user, isAuthenticated, setAuth, clearAuth } = useAuthStore();
 // user.role, user.companyId disponibles en todos los componentes
 ```
+
+### Validación de campos opcionales UUID/fecha (IMPORTANTE)
+Los `@IsOptional()` en NestJS solo omiten validación para `null`/`undefined`, **no para strings vacíos `""`**. Al enviar formularios desde el frontend, siempre convertir strings vacíos a `undefined`:
+```typescript
+ticketsApi.create({
+  ...data,
+  assignedToId: data.assignedToId || undefined,
+  companyId: data.companyId || undefined,
+  scheduledAt: data.scheduledAt || undefined,
+})
+```
+
+### Eliminación segura (SUPER_ADMIN)
+- **Usuarios**: Se verifica `_count.createdTickets` y `_count.comments`. Si tiene datos asociados, lanza `BadRequestException` indicando que se debe desactivar en su lugar.
+- **Empresas**: Se verifica `_count.users` y `_count.tickets`. Solo se puede eliminar una empresa vacía. El botón eliminar está oculto para la empresa propia del SUPER_ADMIN (Elemental Pro).
+- **Tickets**: Se eliminan en cascada junto con sus comentarios (configurado en Prisma schema).
 
 ---
 
@@ -156,6 +178,12 @@ Seguir el mismo patrón que `companies/page.tsx`:
 - Estado local `modalOpen`, `editingCompany`, `form`
 - `useMutation` + `queryClient.invalidateQueries` al terminar
 - Overlay `bg-black/40` + `z-50` para el backdrop
+
+### Página de edición pattern
+Seguir el mismo patrón que `tickets/[id]/edit/page.tsx`:
+- `useQuery` para cargar datos existentes
+- `useEffect` + `reset()` para pre-cargar el formulario una vez que llegan los datos
+- `useMutation` con `ticketsApi.update()` y redirect en `onSuccess`
 
 ---
 
@@ -198,6 +226,32 @@ docker-compose up --build -d frontend
 
 ---
 
+## Producción — Railway
+
+| Servicio | URL |
+|----------|-----|
+| Frontend (dominio custom) | https://ticket.elementalpro.cl |
+| Frontend (Railway) | https://worthy-light-production-c151.up.railway.app |
+| Backend (Railway) | https://ticket-elemental-production.up.railway.app |
+
+### Variables de entorno Railway — Backend (worthy-light)
+- `FRONTEND_URL` — soporta múltiples orígenes separados por coma:
+  `https://worthy-light-production-c151.up.railway.app,https://ticket.elementalpro.cl`
+- `DATABASE_URL` — URL de Postgres de Railway
+- `REDIS_URL` — URL de Redis de Railway
+- `JWT_SECRET`, `JWT_REFRESH_SECRET` — secrets para JWT
+
+### Variables de entorno Railway — Frontend (ticket-elemental)
+- `NEXT_PUBLIC_API_URL` — URL del backend: `https://ticket-elemental-production.up.railway.app`
+
+### CORS multi-origen
+`main.ts` parsea `FRONTEND_URL` como lista separada por comas. Al agregar un nuevo dominio al frontend, añadirlo también a `FRONTEND_URL` en el servicio backend de Railway.
+
+### `NEXT_PUBLIC_API_URL` en Next.js
+Se baja en **build time** — cualquier cambio requiere rebuild del frontend. El default `http://localhost:3001` es correcto para desarrollo local.
+
+---
+
 ## Credenciales de prueba
 
 | Rol | Email | Password |
@@ -230,3 +284,5 @@ docker-compose up --build -d frontend
 - Los comentarios internos (`isInternal: true`) solo los ven SUPER_ADMIN, ADMIN y TECHNICIAN
 - `NEXT_PUBLIC_API_URL` se baja en build time en Next.js — el default `http://localhost:3001` es correcto para desarrollo local con Docker porque el browser accede desde el host
 - El frontend usa `standalone` output de Next.js para la imagen Docker
+- `ticketNumber` es `String @unique` con formato `EP-YYYY-NNNNN` (zero-padded). El orden lexicográfico por `ticketNumber desc` es equivalente al orden numérico descendente.
+- `getTechnicians()` no filtra por companyId — todos los TECHNICIAN/SUPER_ADMIN son de Elemental Pro y deben ser visibles para todas las empresas cliente al asignar tickets.
