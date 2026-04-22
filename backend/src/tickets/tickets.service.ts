@@ -6,11 +6,15 @@ import {
 } from '@nestjs/common';
 import { TicketStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import { CreateTicketDto, UpdateTicketDto, TicketFilterDto } from './dto/create-ticket.dto';
 
 @Injectable()
 export class TicketsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
 
   private async generateTicketNumber(): Promise<string> {
     const count = await this.prisma.ticket.count();
@@ -31,7 +35,7 @@ export class TicketsService {
     const slaDefs = { CRITICAL: 2, HIGH: 4, MEDIUM: 8, LOW: 24 };
     const slaHours = dto.slaHours || slaDefs[dto.priority] || 8;
 
-    return this.prisma.ticket.create({
+    const ticket = await this.prisma.ticket.create({
       data: {
         ...dto,
         companyId,
@@ -42,6 +46,10 @@ export class TicketsService {
       },
       include: this.getTicketIncludes(),
     });
+
+    this.mailService.sendTicketCreated(ticket).catch(() => null);
+
+    return ticket;
   }
 
   async findAll(filters: TicketFilterDto, requestingUser: any) {
