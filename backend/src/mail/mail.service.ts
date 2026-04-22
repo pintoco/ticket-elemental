@@ -1,26 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private transporter: nodemailer.Transporter;
+  private resend: Resend;
 
   constructor(private readonly config: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: config.get<string>('MAIL_USER'),
-        pass: config.get<string>('MAIL_PASS'),
-      },
-    });
+    this.resend = new Resend(config.get<string>('RESEND_API_KEY'));
   }
 
   async sendTicketCreated(ticket: any): Promise<void> {
-    const senderEmail = this.config.get<string>('MAIL_USER');
     const frontendUrl = this.config
       .get<string>('FRONTEND_URL', 'https://ticket.elementalpro.cl')
       .split(',')[0]
@@ -181,13 +172,18 @@ export class MailService {
 </html>`;
 
     try {
-      await this.transporter.sendMail({
-        from: `"Elemental Pro Help Desk" <${senderEmail}>`,
-        to: [...recipients].join(', '),
+      const { error } = await this.resend.emails.send({
+        from: 'Elemental Pro Help Desk <soporte@elementalpro.cl>',
+        to: [...recipients],
         subject: `[${ticket.ticketNumber}] Nuevo ticket: ${ticket.title}`,
         html,
       });
-      this.logger.log(`Email enviado para ticket ${ticket.ticketNumber} → ${[...recipients].join(', ')}`);
+
+      if (error) {
+        this.logger.error(`Error enviando email para ticket ${ticket.ticketNumber}`, error);
+      } else {
+        this.logger.log(`Email enviado para ticket ${ticket.ticketNumber} → ${[...recipients].join(', ')}`);
+      }
     } catch (error) {
       this.logger.error(`Error enviando email para ticket ${ticket.ticketNumber}`, error);
     }
