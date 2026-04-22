@@ -8,6 +8,7 @@ import { TicketStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateTicketDto, UpdateTicketDto, TicketFilterDto } from './dto/create-ticket.dto';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class TicketsService {
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly notificationsService: NotificationsService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   private async generateTicketNumber(): Promise<string> {
@@ -268,18 +270,19 @@ export class TicketsService {
     }
 
     return Promise.all(
-      files.map((file) =>
-        this.prisma.attachment.create({
+      files.map(async (file) => {
+        const url = await this.cloudinaryService.uploadImage(file.buffer);
+        return this.prisma.attachment.create({
           data: {
-            filename: file.filename,
+            filename: file.originalname,
             originalName: file.originalname,
             mimeType: file.mimetype,
             size: file.size,
-            url: `/uploads/${file.filename}`,
+            url,
             ticketId,
           },
-        }),
-      ),
+        });
+      }),
     );
   }
 

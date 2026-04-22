@@ -1,23 +1,16 @@
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { randomUUID } from 'crypto';
+import { memoryStorage } from 'multer';
 import { BadRequestException } from '@nestjs/common';
 import { CommentsController } from './comments.controller';
 import { CommentsService } from './comments.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
     MulterModule.register({
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          const ext = extname(file.originalname).toLowerCase();
-          cb(null, `${randomUUID()}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
         if (!file.mimetype.match(/^image\/(jpeg|jpg|png|webp|gif)$/)) {
           cb(new BadRequestException('Solo se permiten imágenes (jpg, png, webp, gif)') as any, false);
@@ -28,6 +21,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
     NotificationsModule,
+    CloudinaryModule,
   ],
   controllers: [CommentsController],
   providers: [CommentsService],

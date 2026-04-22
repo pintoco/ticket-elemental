@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async create(ticketId: string, dto: CreateCommentDto, requestingUser: any) {
@@ -131,18 +133,19 @@ export class CommentsService {
     }
 
     return Promise.all(
-      files.map((file) =>
-        this.prisma.attachment.create({
+      files.map(async (file) => {
+        const url = await this.cloudinaryService.uploadImage(file.buffer);
+        return this.prisma.attachment.create({
           data: {
-            filename: file.filename,
+            filename: file.originalname,
             originalName: file.originalname,
             mimeType: file.mimetype,
             size: file.size,
-            url: `/uploads/${file.filename}`,
+            url,
             commentId,
           },
-        }),
-      ),
+        });
+      }),
     );
   }
 
