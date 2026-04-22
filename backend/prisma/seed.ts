@@ -77,10 +77,10 @@ async function main() {
   const hashPw = async (password: string) => bcrypt.hash(password, 12);
 
   const superAdmin = await prisma.user.upsert({
-    where: { email: 'admin@elementalpro.cl' },
+    where: { email: 'ppinto@elementalpro.cl' },
     update: {},
     create: {
-      email: 'admin@elementalpro.cl',
+      email: 'ppinto@elementalpro.cl',
       password: await hashPw('Admin1234!'),
       firstName: 'Pablo',
       lastName: 'Pinto',
@@ -671,7 +671,7 @@ async function main() {
   console.log('║  CREDENTIALS                             ║');
   console.log('╠══════════════════════════════════════════╣');
   console.log('║  Super Admin:                            ║');
-  console.log('║  📧 admin@elementalpro.cl                ║');
+  console.log('║  📧 ppinto@elementalpro.cl               ║');
   console.log('║  🔑 Admin1234!                           ║');
   console.log('╠══════════════════════════════════════════╣');
   console.log('║  Técnico:                                ║');
