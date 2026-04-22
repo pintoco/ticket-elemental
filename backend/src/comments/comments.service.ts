@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 
 @Injectable()
 export class CommentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async create(ticketId: string, dto: CreateCommentDto, requestingUser: any) {
     const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
@@ -41,6 +45,22 @@ export class CommentsService {
       where: { id: ticketId },
       data: { updatedAt: new Date() },
     });
+
+    // Notify ticket creator and assignee (excluding the commenter)
+    const notifyIds = new Set<string>();
+    if (ticket.creatorId !== requestingUser.id) notifyIds.add(ticket.creatorId);
+    if (ticket.assignedToId && ticket.assignedToId !== requestingUser.id) notifyIds.add(ticket.assignedToId);
+
+    const authorName = `${requestingUser.firstName} ${requestingUser.lastName}`;
+    for (const userId of notifyIds) {
+      this.notificationsService.createNotification({
+        userId,
+        type: 'COMMENT_ADDED',
+        title: 'Nuevo comentario',
+        message: `${authorName} comentó en el ticket`,
+        ticketId,
+      }).catch(() => null);
+    }
 
     return comment;
   }

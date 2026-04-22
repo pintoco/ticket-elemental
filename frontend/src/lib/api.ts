@@ -122,6 +122,8 @@ export const usersApi = {
   update: (id: string, data: any) => api.patch(`/users/${id}`, data),
   delete: (id: string) => api.delete(`/users/${id}`),
   getTechnicians: (companyId?: string) => api.get('/users/technicians', { params: { companyId } }),
+  changePassword: (id: string, data: { currentPassword: string; newPassword: string }) =>
+    api.patch(`/users/${id}/change-password`, data),
 };
 
 // Companies endpoints

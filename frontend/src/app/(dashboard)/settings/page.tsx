@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User, Lock, Building2, Shield } from 'lucide-react';
+import { User, Lock, Shield, Pencil, X, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authApi, usersApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
@@ -11,6 +11,8 @@ import { ROLE_CONFIG } from '@/lib/utils';
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { user, setUser } = useAuthStore();
+  const [editing, setEditing] = useState(false);
+  const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', phone: '' });
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
 
   const { data: profile } = useQuery({
@@ -18,24 +20,47 @@ export default function SettingsPage() {
     queryFn: () => authApi.getProfile().then((r) => r.data.data),
   });
 
+  const startEdit = () => {
+    setProfileForm({
+      firstName: profile?.firstName || '',
+      lastName: profile?.lastName || '',
+      phone: profile?.phone || '',
+    });
+    setEditing(true);
+  };
+
   const updateMutation = useMutation({
     mutationFn: (data: any) => usersApi.update(user!.id, data),
     onSuccess: (res) => {
       setUser(res.data.data);
       queryClient.invalidateQueries({ queryKey: ['profile'] });
+      setEditing(false);
       toast.success('Perfil actualizado');
     },
     onError: () => toast.error('Error al actualizar perfil'),
   });
 
   const pwMutation = useMutation({
-    mutationFn: (data: any) => usersApi.update(user!.id, data),
+    mutationFn: (data: { currentPassword: string; newPassword: string }) =>
+      usersApi.changePassword(user!.id, data),
     onSuccess: () => {
       toast.success('Contraseña actualizada');
       setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     },
-    onError: () => toast.error('Error al cambiar contraseña'),
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || 'Error al cambiar contraseña';
+      toast.error(msg);
+    },
   });
+
+  const handleProfileSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateMutation.mutate({
+      firstName: profileForm.firstName,
+      lastName: profileForm.lastName,
+      phone: profileForm.phone || undefined,
+    });
+  };
 
   const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,9 +81,17 @@ export default function SettingsPage() {
     <div className="max-w-2xl mx-auto space-y-5">
       {/* Profile Card */}
       <div className="card p-5">
-        <div className="flex items-center gap-3 mb-5">
-          <User className="w-5 h-5 text-gray-400" />
-          <h2 className="text-sm font-semibold text-gray-700">Mi Perfil</h2>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <User className="w-5 h-5 text-gray-400" />
+            <h2 className="text-sm font-semibold text-gray-700">Mi Perfil</h2>
+          </div>
+          {!editing && (
+            <button onClick={startEdit} className="btn-secondary text-xs">
+              <Pencil className="w-3.5 h-3.5" />
+              Editar
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-4 mb-5 pb-5 border-b border-gray-100">
@@ -78,32 +111,80 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="label">Nombre</label>
-            <p className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded-lg">
-              {profile?.firstName}
-            </p>
+        {editing ? (
+          <form onSubmit={handleProfileSave} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Nombre</label>
+                <input
+                  className="input"
+                  value={profileForm.firstName}
+                  onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Apellido</label>
+                <input
+                  className="input"
+                  value={profileForm.lastName}
+                  onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Email</label>
+                <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">{profile?.email}</p>
+              </div>
+              <div>
+                <label className="label">Teléfono</label>
+                <input
+                  className="input"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                  placeholder="+56912345678"
+                />
+              </div>
+              <div>
+                <label className="label">Empresa</label>
+                <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">{profile?.company?.name}</p>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button type="submit" disabled={updateMutation.isPending} className="btn-primary">
+                <Check className="w-4 h-4" />
+                {updateMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+              <button type="button" onClick={() => setEditing(false)} className="btn-secondary">
+                <X className="w-4 h-4" />
+                Cancelar
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Nombre</label>
+              <p className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded-lg">{profile?.firstName}</p>
+            </div>
+            <div>
+              <label className="label">Apellido</label>
+              <p className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded-lg">{profile?.lastName}</p>
+            </div>
+            <div>
+              <label className="label">Email</label>
+              <p className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded-lg">{profile?.email}</p>
+            </div>
+            <div>
+              <label className="label">Teléfono</label>
+              <p className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded-lg">{profile?.phone || '—'}</p>
+            </div>
+            <div>
+              <label className="label">Empresa</label>
+              <p className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded-lg">{profile?.company?.name}</p>
+            </div>
           </div>
-          <div>
-            <label className="label">Apellido</label>
-            <p className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded-lg">
-              {profile?.lastName}
-            </p>
-          </div>
-          <div>
-            <label className="label">Email</label>
-            <p className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded-lg">
-              {profile?.email}
-            </p>
-          </div>
-          <div>
-            <label className="label">Empresa</label>
-            <p className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded-lg">
-              {profile?.company?.name}
-            </p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Change Password */}
@@ -122,6 +203,7 @@ export default function SettingsPage() {
               onChange={(e) => setPwForm({ ...pwForm, currentPassword: e.target.value })}
               className="input"
               placeholder="••••••••"
+              required
             />
           </div>
           <div>
@@ -132,6 +214,7 @@ export default function SettingsPage() {
               onChange={(e) => setPwForm({ ...pwForm, newPassword: e.target.value })}
               className="input"
               placeholder="Mínimo 8 caracteres"
+              required
             />
           </div>
           <div>
@@ -142,6 +225,7 @@ export default function SettingsPage() {
               onChange={(e) => setPwForm({ ...pwForm, confirmPassword: e.target.value })}
               className="input"
               placeholder="Repite la nueva contraseña"
+              required
             />
           </div>
           <button type="submit" disabled={pwMutation.isPending} className="btn-primary">
@@ -161,7 +245,6 @@ export default function SettingsPage() {
             { label: 'Versión', value: 'v1.0.0' },
             { label: 'Plataforma', value: 'Elemental Pro Help Desk' },
             { label: 'Stack', value: 'NestJS + Next.js + PostgreSQL' },
-            { label: 'Documentación API', value: 'http://localhost:3001/api/docs' },
           ].map(({ label, value }) => (
             <div key={label} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
               <span className="text-gray-500">{label}</span>

@@ -7,6 +7,7 @@ import {
 import { TicketStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateTicketDto, UpdateTicketDto, TicketFilterDto } from './dto/create-ticket.dto';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class TicketsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private async generateTicketNumber(): Promise<string> {
@@ -48,6 +50,17 @@ export class TicketsService {
     });
 
     this.mailService.sendTicketCreated(ticket).catch(() => null);
+
+    // Notify assigned technician
+    if (ticket.assignedToId && ticket.assignedToId !== requestingUser.id) {
+      this.notificationsService.createNotification({
+        userId: ticket.assignedToId,
+        type: 'TICKET_ASSIGNED',
+        title: 'Ticket asignado',
+        message: `Se te asignó el ticket ${ticket.ticketNumber}: ${ticket.title}`,
+        ticketId: ticket.id,
+      }).catch(() => null);
+    }
 
     return ticket;
   }
@@ -189,11 +202,36 @@ export class TicketsService {
       },
     });
 
-    return this.prisma.ticket.update({
+    const updated = await this.prisma.ticket.update({
       where: { id },
       data: updateData,
       include: this.getTicketIncludes(),
     });
+
+    // Notify creator on status change (if someone else made the change)
+    if (dto.status && dto.status !== ticket.status && ticket.creatorId !== requestingUser.id) {
+      const isResolved = dto.status === TicketStatus.RESOLVED;
+      this.notificationsService.createNotification({
+        userId: ticket.creatorId,
+        type: isResolved ? 'TICKET_RESOLVED' : 'TICKET_UPDATED',
+        title: isResolved ? 'Ticket resuelto' : 'Ticket actualizado',
+        message: `El ticket ${ticket.ticketNumber} ${isResolved ? 'fue resuelto' : `cambió de estado a ${dto.status}`}`,
+        ticketId: id,
+      }).catch(() => null);
+    }
+
+    // Notify newly assigned technician
+    if (dto.assignedToId && dto.assignedToId !== ticket.assignedToId && dto.assignedToId !== requestingUser.id) {
+      this.notificationsService.createNotification({
+        userId: dto.assignedToId,
+        type: 'TICKET_ASSIGNED',
+        title: 'Ticket asignado',
+        message: `Se te asignó el ticket ${ticket.ticketNumber}: ${ticket.title}`,
+        ticketId: id,
+      }).catch(() => null);
+    }
+
+    return updated;
   }
 
   async remove(id: string, requestingUser: any) {
