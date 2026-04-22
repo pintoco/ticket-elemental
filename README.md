@@ -92,6 +92,7 @@ ticket/
 | Estado global | Zustand |
 | Queries | TanStack React Query |
 | Validación | Class-validator + Zod |
+| Email | Resend (HTTP API) |
 | Contenedores | Docker + Docker Compose |
 | Docs API | Swagger/OpenAPI |
 
@@ -116,6 +117,8 @@ ticket/
 **notifications** — Notificaciones internas con contador de no leídas. Tipos: creación, actualización, asignación, resolución, comentario.
 
 **audit-logs** — Registro de todas las acciones del sistema con usuario, empresa, valores anteriores y nuevos.
+
+**mail** — Notificaciones por email al crear tickets. Usa Resend (HTTP API) para compatibilidad con Railway. Envía a: `tecnico@elementalpro.cl`, creador del ticket y técnico asignado.
 
 ### Frontend (Next.js)
 
@@ -186,6 +189,8 @@ Endpoints principales:
 | JWT_EXPIRES_IN | Expiración access token | 15m |
 | JWT_REFRESH_EXPIRES_IN | Expiración refresh token | 7d |
 | PORT | Puerto backend | 3001 |
+| FRONTEND_URL | CORS origins (separados por coma) | http://localhost:3000 |
+| RESEND_API_KEY | API key de Resend para emails | — |
 | NEXT_PUBLIC_API_URL | URL del backend desde el frontend | http://localhost:3001 |
 
 ---
@@ -214,6 +219,15 @@ docker-compose down && docker-compose up --build -d
 
 ---
 
+## Producción — Railway
+
+| Servicio | Nombre en Railway | URL |
+|----------|-------------------|-----|
+| Frontend | worthy-light | https://ticket.elementalpro.cl |
+| Backend | ticket-elemental | https://ticket-elemental-production.up.railway.app |
+
+---
+
 ## Desarrollo local (sin Docker)
 
 ```bash
@@ -235,4 +249,4 @@ npm run dev
 
 ---
 
-© 2024 Elemental Pro — Todos los derechos reservados
+© 2026 Elemental Pro — Todos los derechos reservados

@@ -28,6 +28,7 @@ Sistema de tickets técnicos SaaS multi-tenant para **Elemental Pro**, empresa c
 | Formularios | react-hook-form + Zod (frontend) / class-validator (backend) |
 | Notificaciones | react-hot-toast (Toaster en providers.tsx) |
 | Íconos | lucide-react |
+| Email | Resend (HTTP API) |
 | Contenedores | Docker + Docker Compose |
 
 ---
@@ -234,14 +235,15 @@ docker-compose up --build -d frontend
 | Frontend (Railway) | https://worthy-light-production-c151.up.railway.app |
 | Backend (Railway) | https://ticket-elemental-production.up.railway.app |
 
-### Variables de entorno Railway — Backend (worthy-light)
+### Variables de entorno Railway — Backend (ticket-elemental)
 - `FRONTEND_URL` — soporta múltiples orígenes separados por coma:
   `https://worthy-light-production-c151.up.railway.app,https://ticket.elementalpro.cl`
 - `DATABASE_URL` — URL de Postgres de Railway
 - `REDIS_URL` — URL de Redis de Railway
 - `JWT_SECRET`, `JWT_REFRESH_SECRET` — secrets para JWT
+- `RESEND_API_KEY` — API key de Resend para envío de emails (`re_...`)
 
-### Variables de entorno Railway — Frontend (ticket-elemental)
+### Variables de entorno Railway — Frontend (worthy-light)
 - `NEXT_PUBLIC_API_URL` — URL del backend: `https://ticket-elemental-production.up.railway.app`
 
 ### CORS multi-origen
@@ -277,6 +279,23 @@ Se baja en **build time** — cualquier cambio requiere rebuild del frontend. El
 
 ---
 
+## Notificaciones por email
+
+Al crear un ticket, el sistema envía un email automático a:
+- `tecnico@elementalpro.cl` (siempre)
+- El creador del ticket (si tiene email)
+- El técnico asignado (si hay uno asignado)
+
+**Implementación**: `MailService` en `backend/src/mail/` usa la SDK de **Resend** (HTTP API). El envío es fire-and-forget — nunca bloquea la creación del ticket.
+
+**Por qué Resend y no SMTP**: Railway bloquea los puertos SMTP outbound (587, 465, 25). Resend usa HTTPS (puerto 443) que siempre está disponible.
+
+**Remitente**: `tecnico@elementalpro.cl` (dominio `elementalpro.cl` verificado en Resend).
+
+**Variable requerida**: `RESEND_API_KEY` en el backend de Railway.
+
+---
+
 ## Notas de implementación conocidas
 
 - `prisma db push` en lugar de `prisma migrate deploy` porque no hay archivos de migración generados
@@ -286,3 +305,4 @@ Se baja en **build time** — cualquier cambio requiere rebuild del frontend. El
 - El frontend usa `standalone` output de Next.js para la imagen Docker
 - `ticketNumber` es `String @unique` con formato `EP-YYYY-NNNNN` (zero-padded). El orden lexicográfico por `ticketNumber desc` es equivalente al orden numérico descendente.
 - `getTechnicians()` no filtra por companyId — todos los TECHNICIAN/SUPER_ADMIN son de Elemental Pro y deben ser visibles para todas las empresas cliente al asignar tickets.
+- Railway bloquea puertos SMTP outbound — usar siempre Resend (HTTP API) para emails, nunca nodemailer con SMTP directo.
