@@ -27,7 +27,7 @@ export class MailService {
       .trim();
     const ticketUrl = `${frontendUrl}/tickets/${ticket.id}`;
 
-    const recipients = new Set<string>(['soporte@elementalpro.cl']);
+    const recipients = new Set<string>(['tecnico@elementalpro.cl']);
     if (ticket.creator?.email) recipients.add(ticket.creator.email);
     if (ticket.assignedTo?.email) recipients.add(ticket.assignedTo.email);
 
