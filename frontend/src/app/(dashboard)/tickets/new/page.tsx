@@ -58,7 +58,13 @@ export default function NewTicketPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) =>
-      ticketsApi.create({ ...data, tags }),
+      ticketsApi.create({
+        ...data,
+        tags,
+        assignedToId: data.assignedToId || undefined,
+        companyId: data.companyId || undefined,
+        scheduledAt: data.scheduledAt || undefined,
+      }),
     onSuccess: (res) => {
       toast.success('Ticket creado exitosamente');
       router.push(`/tickets/${res.data.data.id}`);
