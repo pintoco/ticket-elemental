@@ -1,0 +1,236 @@
+// Elemental Pro - Help Desk System
+// Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  TECHNICIAN
+  OPERATOR
+  CLIENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketType {
+  INCIDENT
+  MAINTENANCE
+  INSTALLATION
+  EMERGENCY
+}
+
+enum TicketCategory {
+  CAMERAS
+  FIBER_OPTIC
+  NETWORK
+  SERVERS
+  VIDEO_WALL
+  DSS_PRO
+  NVR
+  OTHER
+}
+
+enum NotificationType {
+  TICKET_CREATED
+  TICKET_UPDATED
+  TICKET_ASSIGNED
+  TICKET_RESOLVED
+  COMMENT_ADDED
+  MENTION
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model Company {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  logo        String?
+  email       String?
+  phone       String?
+  address     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  tickets     Ticket[]
+  auditLogs   AuditLog[]
+
+  @@map("companies")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  firstName    String
+  lastName     String
+  role         UserRole @default(CLIENT)
+  phone        String?
+  avatar       String?
+  isActive     Boolean  @default(true)
+  refreshToken String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id])
+
+  assignedTickets    Ticket[]         @relation("AssignedTechnician")
+  createdTickets     Ticket[]         @relation("TicketCreator")
+  comments           TicketComment[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+
+  @@map("users")
+}
+
+model Ticket {
+  id              String         @id @default(uuid())
+  ticketNumber    String         @unique
+  title           String
+  description     String
+  status          TicketStatus   @default(OPEN)
+  priority        TicketPriority @default(MEDIUM)
+  type            TicketType     @default(INCIDENT)
+  category        TicketCategory @default(OTHER)
+
+  // Location & Technical Fields
+  location        String?
+  cameraId        String?
+  ipAddress       String?
+  slaHours        Int?
+  scheduledAt     DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+
+  // Tags
+  tags            String[]       @default([])
+
+  // Relations
+  companyId       String
+  company         Company        @relation(fields: [companyId], references: [id])
+
+  creatorId       String
+  creator         User           @relation("TicketCreator", fields: [creatorId], references: [id])
+
+  assignedToId    String?
+  assignedTo      User?          @relation("AssignedTechnician", fields: [assignedToId], references: [id])
+
+  comments        TicketComment[]
+  attachments     Attachment[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("tickets")
+}
+
+model TicketComment {
+  id          String   @id @default(uuid())
+  content     String
+  isInternal  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+
+  attachments Attachment[]
+
+  @@map("ticket_comments")
+}
+
+model Attachment {
+  id          String   @id @default(uuid())
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  url         String
+  createdAt   DateTime @default(now())
+
+  ticketId    String?
+  ticket      Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  commentId   String?
+  comment     TicketComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  type        NotificationType
+  title       String
+  message     String
+  isRead      Boolean          @default(false)
+  metadata    Json?
+  createdAt   DateTime         @default(now())
+
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  ticketId    String?
+  ticket      Ticket?          @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String
+  entity      String
+  entityId    String
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  ticketId    String?
+  ticket      Ticket?  @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}

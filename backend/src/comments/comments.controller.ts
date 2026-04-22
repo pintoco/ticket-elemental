@@ -1,0 +1,47 @@
+import { Controller, Get, Post, Patch, Delete, Body, Param, ParseUUIDPipe } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CommentsService } from './comments.service';
+import { CreateCommentDto } from './dto/create-comment.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+
+@ApiTags('comments')
+@ApiBearerAuth('access-token')
+@Controller('tickets/:ticketId/comments')
+export class CommentsController {
+  constructor(private readonly commentsService: CommentsService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Add a comment to a ticket' })
+  create(
+    @Param('ticketId', ParseUUIDPipe) ticketId: string,
+    @Body() dto: CreateCommentDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.commentsService.create(ticketId, dto, user);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all comments for a ticket' })
+  findByTicket(
+    @Param('ticketId', ParseUUIDPipe) ticketId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.commentsService.findByTicket(ticketId, user);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update a comment' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('content') content: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.commentsService.update(id, content, user);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a comment' })
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
+    return this.commentsService.remove(id, user);
+  }
+}
