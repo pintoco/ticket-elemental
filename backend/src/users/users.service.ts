@@ -119,10 +119,6 @@ export class UsersService {
       isActive: true,
     };
 
-    if (requestingUser.role !== UserRole.SUPER_ADMIN) {
-      where.companyId = requestingUser.companyId;
-    }
-
     return this.prisma.user.findMany({
       where,
       select: { id: true, firstName: true, lastName: true, email: true, role: true },

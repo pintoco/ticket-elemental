@@ -91,8 +91,7 @@ export class TicketsService {
         where,
         include: this.getTicketIncludes(),
         orderBy: [
-          { priority: 'desc' },
-          { createdAt: 'desc' },
+          { ticketNumber: 'desc' },
         ],
         skip,
         take: Number(limit),
