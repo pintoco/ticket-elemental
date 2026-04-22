@@ -9,7 +9,7 @@ import {
   CheckCircle2, AlertTriangle, ImageIcon, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { ticketsApi, commentsApi, API_BASE_URL } from '@/lib/api';
+import { ticketsApi, commentsApi } from '@/lib/api';
 import {
   STATUS_CONFIG, PRIORITY_CONFIG, CATEGORY_CONFIG, TYPE_CONFIG,
   formatDate, formatRelativeDate, getInitials, cn
@@ -167,13 +167,13 @@ export default function TicketDetailPage() {
                 {ticket.attachments.map((att: any) => (
                   <a
                     key={att.id}
-                    href={`${API_BASE_URL}${att.url}`}
+                    href={att.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block aspect-square rounded-lg overflow-hidden border border-gray-200 hover:opacity-80 transition-opacity"
                   >
                     <img
-                      src={`${API_BASE_URL}${att.url}`}
+                      src={att.url}
                       alt={att.originalName}
                       className="w-full h-full object-cover"
                     />
@@ -229,13 +229,13 @@ export default function TicketDetailPage() {
                             {c.attachments.map((att: any) => (
                               <a
                                 key={att.id}
-                                href={`${API_BASE_URL}${att.url}`}
+                                href={att.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="block w-20 h-20 rounded-lg overflow-hidden border border-gray-200 hover:opacity-80 transition-opacity flex-shrink-0"
                               >
                                 <img
-                                  src={`${API_BASE_URL}${att.url}`}
+                                  src={att.url}
                                   alt={att.originalName}
                                   className="w-full h-full object-cover"
                                 />
