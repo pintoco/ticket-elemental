@@ -173,7 +173,7 @@ export class MailService {
 
     try {
       const { error } = await this.resend.emails.send({
-        from: 'Elemental Pro Help Desk <soporte@elementalpro.cl>',
+        from: 'Elemental Pro Help Desk <tecnico@elementalpro.cl>',
         to: [...recipients],
         subject: `[${ticket.ticketNumber}] Nuevo ticket: ${ticket.title}`,
         html,
