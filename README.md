@@ -55,6 +55,7 @@ ticket/
 │   │   ├── dashboard/    # Métricas en tiempo real
 │   │   ├── notifications/
 │   │   ├── audit-logs/
+│   │   ├── cloudinary/   # Upload de imágenes a Cloudinary
 │   │   └── prisma/       # ORM
 │   └── prisma/
 │       ├── schema.prisma # Esquema de BD
@@ -93,6 +94,7 @@ ticket/
 | Queries | TanStack React Query |
 | Validación | Class-validator + Zod |
 | Email | Resend (HTTP API) |
+| Imágenes | Cloudinary (cloud storage permanente) |
 | Contenedores | Docker + Docker Compose |
 | Docs API | Swagger/OpenAPI |
 
@@ -110,7 +112,7 @@ ticket/
 
 **tickets** — Core del sistema. Estados: OPEN → IN_PROGRESS → PENDING → RESOLVED → CLOSED. Prioridades con SLA automático. Filtros avanzados con paginación. Historial completo.
 
-**comments** — Sistema de comentarios tipo chat con soporte de notas internas (solo visibles por técnicos). Marca de lectura.
+**comments** — Sistema de comentarios tipo chat con soporte de notas internas (solo visibles por técnicos). Soporta adjuntar hasta 5 imágenes por comentario, subidas a Cloudinary.
 
 **dashboard** — Métricas en tiempo real: tickets por estado, prioridad, categoría, empresa y técnico. Tendencia 30 días. Tiempo promedio de resolución.
 
@@ -130,9 +132,9 @@ ticket/
 
 **Ticket Detail** — Vista completa con historial tipo chat, cambio de estado con transiciones válidas, sidebar con toda la información técnica (ubicación, IP, cámara, SLA). Soporte de notas internas.
 
-**New Ticket** — Formulario completo con campos técnicos especializados. Asignación de técnico. Sistema de etiquetas.
+**New Ticket** — Formulario completo con campos técnicos especializados. Asignación de técnico. Sistema de etiquetas. Permite adjuntar hasta 5 imágenes al crear el ticket (subidas a Cloudinary).
 
-**Users** — Gestión de usuarios con activación/desactivación. Creación con modal. Filtro por búsqueda. Solo SUPER_ADMIN puede crear Técnicos (siempre asignados a Elemental Pro).
+**Users** — Gestión de usuarios con activación/desactivación. Creación y edición con modal (firstName, lastName, phone, role). Filtro por búsqueda. Solo SUPER_ADMIN puede crear Técnicos (siempre asignados a Elemental Pro).
 
 **Companies** — Vista de empresas con estadísticas de usuarios y tickets.
 
@@ -193,6 +195,9 @@ Endpoints principales:
 | PORT | Puerto backend | 3001 |
 | FRONTEND_URL | CORS origins (separados por coma) | http://localhost:3000 |
 | RESEND_API_KEY | API key de Resend para emails | — |
+| CLOUDINARY_CLOUD_NAME | Nombre del cloud en Cloudinary | — |
+| CLOUDINARY_API_KEY | API key de Cloudinary | — |
+| CLOUDINARY_API_SECRET | API secret de Cloudinary | — |
 | NEXT_PUBLIC_API_URL | URL del backend desde el frontend | http://localhost:3001 |
 
 ---

@@ -29,6 +29,7 @@ Sistema de tickets técnicos SaaS multi-tenant para **Elemental Pro**, empresa c
 | Notificaciones | react-hot-toast (Toaster en providers.tsx) |
 | Íconos | lucide-react |
 | Email | Resend (HTTP API) |
+| Imágenes | Cloudinary (cloud storage permanente) |
 | Contenedores | Docker + Docker Compose |
 
 ---
@@ -46,6 +47,7 @@ ticket/
 │   ├── dashboard/      # Métricas en tiempo real (filtradas por empresa)
 │   ├── notifications/  # Notificaciones internas
 │   ├── audit-logs/     # Registro de acciones
+│   ├── cloudinary/     # Servicio de upload de imágenes a Cloudinary
 │   ├── common/         # Decorators, guards, filters, interceptors
 │   └── prisma/         # PrismaService (global module)
 │
@@ -62,7 +64,7 @@ ticket/
     │   │       ├── page.tsx    # Vista detalle con cambio de estado y comentarios
     │   │       └── edit/       # Formulario de edición pre-cargado
     │   ├── companies/          # Gestión empresas con create/edit/delete modal
-    │   ├── users/              # Gestión usuarios con create/delete
+    │   ├── users/              # Gestión usuarios con create/edit/delete (modal)
     │   ├── notifications/
     │   └── settings/           # Perfil + cambio contraseña
     ├── components/layout/  # Sidebar, Header
@@ -132,6 +134,8 @@ Sidebar usa `#0f172a` (sidebar-900 en config).
 authApi, ticketsApi, commentsApi, usersApi, companiesApi, dashboardApi, notificationsApi
 
 // companiesApi incluye: getAll, getById, create, update, delete, getStats
+// ticketsApi incluye: uploadAttachments(ticketId, files) — FormData multipart
+// commentsApi incluye: uploadAttachments(ticketId, commentId, files) — FormData multipart
 // El interceptor maneja automáticamente refresh de tokens en 401
 // Tokens se leen de cookies: 'accessToken', 'refreshToken'
 ```
@@ -244,6 +248,9 @@ docker-compose up --build -d frontend
 - `REDIS_URL` — URL de Redis de Railway
 - `JWT_SECRET`, `JWT_REFRESH_SECRET` — secrets para JWT
 - `RESEND_API_KEY` — API key de Resend para envío de emails (`re_...`)
+- `CLOUDINARY_CLOUD_NAME` — Nombre del cloud (cloudinary.com/console)
+- `CLOUDINARY_API_KEY` — API key de Cloudinary
+- `CLOUDINARY_API_SECRET` — API secret de Cloudinary
 
 ### Variables de entorno Railway — Frontend (worthy-light)
 - `NEXT_PUBLIC_API_URL` — URL del backend: `https://ticket-elemental-production.up.railway.app`
@@ -308,3 +315,7 @@ Al crear un ticket, el sistema envía un email automático a:
 - `ticketNumber` es `String @unique` con formato `EP-YYYY-NNNNN` (zero-padded). El orden lexicográfico por `ticketNumber desc` es equivalente al orden numérico descendente.
 - `getTechnicians()` no filtra por companyId — todos los TECHNICIAN/SUPER_ADMIN son de Elemental Pro y deben ser visibles para todas las empresas cliente al asignar tickets.
 - Railway bloquea puertos SMTP outbound — usar siempre Resend (HTTP API) para emails, nunca nodemailer con SMTP directo.
+- Las URLs de adjuntos almacenadas en BD son URLs absolutas de Cloudinary (`https://res.cloudinary.com/...`). Nunca prefijarlas con `API_BASE_URL` — usarlas directamente en `src` e `href`.
+- Upload de imágenes es un flujo de dos pasos: 1) crear el recurso (JSON) → 2) subir archivos (`FormData` multipart al endpoint `/:id/attachments`). `MulterModule` usa `memoryStorage()` — los archivos llegan como `buffer` a los controllers.
+- `CloudinaryService.uploadImage(buffer)` sube un buffer a Cloudinary y retorna el `secure_url`. Se inyecta en `TicketsService` y `CommentsService`. El módulo `CloudinaryModule` exporta `CloudinaryService` y se importa donde se necesite.
+- La edición de usuarios (firstName, lastName, phone, role) se hace desde un modal en `users/page.tsx`, igual al patrón de companies. El rol solo lo puede cambiar el SUPER_ADMIN; si el usuario editado es TECHNICIAN/SUPER_ADMIN, el selector de rol se deshabilita para roles no-SUPER_ADMIN.
