@@ -123,13 +123,28 @@ export interface Notification {
   ticket?: Pick<Ticket, 'id' | 'ticketNumber' | 'title'>;
 }
 
+export interface SlaOverdueTicket {
+  id: string;
+  ticketNumber: string;
+  title: string;
+  priority: TicketPriority;
+  status: TicketStatus;
+  slaHours: number;
+  hoursOverdue: number;
+  createdAt: string;
+  assignedTo?: Pick<User, 'firstName' | 'lastName'>;
+  company: Pick<Company, 'name'>;
+}
+
 export interface DashboardMetrics {
   summary: {
     total: number;
     open: number;
     inProgress: number;
     pending: number;
+    onSite: number;
     resolved: number;
+    validated: number;
     closed: number;
     critical: number;
     high: number;
@@ -143,6 +158,11 @@ export interface DashboardMetrics {
   recentTickets: Ticket[];
   trend: Array<{ date: string; created: number; resolved: number }>;
   avgResolutionHours: number;
+  sla: {
+    overdueCount: number;
+    complianceRate: number | null;
+    overdueTickets: SlaOverdueTicket[];
+  };
 }
 
 export interface PaginatedResponse<T> {

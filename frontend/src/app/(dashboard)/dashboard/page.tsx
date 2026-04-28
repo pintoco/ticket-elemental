@@ -7,11 +7,11 @@ import {
 } from 'recharts';
 import {
   Ticket, AlertTriangle, CheckCircle2, Clock, TrendingUp,
-  Users, Building2, Activity, RefreshCw
+  Users, Building2, Activity, RefreshCw, ShieldAlert, ShieldCheck
 } from 'lucide-react';
 import { dashboardApi } from '@/lib/api';
-import { formatDate, CATEGORY_CONFIG, STATUS_CONFIG } from '@/lib/utils';
-import type { DashboardMetrics, Ticket as TicketType } from '@/types';
+import { formatDate, CATEGORY_CONFIG, STATUS_CONFIG, PRIORITY_CONFIG } from '@/lib/utils';
+import type { DashboardMetrics, Ticket as TicketType, SlaOverdueTicket } from '@/types';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
@@ -63,9 +63,9 @@ export default function DashboardPage() {
 
   if (!data) return null;
 
-  const { summary, byCategory, byTechnician, recentTickets, trend, avgResolutionHours } = data;
+  const { summary, byCategory, byTechnician, recentTickets, trend, avgResolutionHours, sla } = data;
 
-  const activeTickets = summary.open + summary.inProgress + summary.pending;
+  const activeTickets = summary.open + summary.inProgress + summary.pending + (summary.onSite || 0);
 
   return (
     <div className="space-y-6">
@@ -99,12 +99,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Status Row */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-4 lg:grid-cols-7 gap-3">
         {[
           { key: 'open', label: 'Abiertos', value: summary.open, color: 'border-l-blue-500' },
           { key: 'inProgress', label: 'En Proceso', value: summary.inProgress, color: 'border-l-yellow-500' },
           { key: 'pending', label: 'Pendientes', value: summary.pending, color: 'border-l-orange-500' },
+          { key: 'onSite', label: 'En Terreno', value: summary.onSite || 0, color: 'border-l-purple-500' },
           { key: 'resolved', label: 'Resueltos', value: summary.resolved, color: 'border-l-green-500' },
+          { key: 'validated', label: 'Validados', value: summary.validated || 0, color: 'border-l-teal-500' },
           { key: 'closed', label: 'Cerrados', value: summary.closed, color: 'border-l-gray-400' },
         ].map((s) => (
           <div key={s.key} className={`card p-4 border-l-4 ${s.color}`}>
@@ -249,6 +251,128 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* SLA Section */}
+      {sla && (
+        <div className="space-y-4">
+          {/* SLA KPIs */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className={cn(
+              'card p-5 flex items-center gap-4 border-l-4',
+              sla.overdueCount > 0 ? 'border-l-red-500' : 'border-l-green-500'
+            )}>
+              <div className={cn(
+                'w-12 h-12 rounded-xl flex items-center justify-center',
+                sla.overdueCount > 0 ? 'bg-red-500' : 'bg-green-500'
+              )}>
+                <ShieldAlert className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{sla.overdueCount}</p>
+                <p className="text-sm text-gray-500">Tickets SLA Vencido</p>
+              </div>
+            </div>
+
+            <div className={cn(
+              'card p-5 flex items-center gap-4 border-l-4',
+              sla.complianceRate === null ? 'border-l-gray-300'
+              : sla.complianceRate >= 80 ? 'border-l-green-500'
+              : sla.complianceRate >= 60 ? 'border-l-yellow-500'
+              : 'border-l-red-500'
+            )}>
+              <div className={cn(
+                'w-12 h-12 rounded-xl flex items-center justify-center',
+                sla.complianceRate === null ? 'bg-gray-400'
+                : sla.complianceRate >= 80 ? 'bg-green-500'
+                : sla.complianceRate >= 60 ? 'bg-yellow-500'
+                : 'bg-red-500'
+              )}>
+                <ShieldCheck className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {sla.complianceRate !== null ? `${sla.complianceRate}%` : '—'}
+                </p>
+                <p className="text-sm text-gray-500">Cumplimiento SLA</p>
+                <p className="text-xs text-gray-400">Tickets resueltos a tiempo</p>
+              </div>
+            </div>
+
+            <div className="card p-5 flex items-center gap-4 border-l-4 border-l-purple-500">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-500">
+                <Clock className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{avgResolutionHours}h</p>
+                <p className="text-sm text-gray-500">Promedio Resolución</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Overdue Tickets List */}
+          {sla.overdueTickets.length > 0 && (
+            <div className="card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-red-500" />
+                  Tickets con SLA Vencido ({sla.overdueCount})
+                </h3>
+                <Link href="/tickets" className="text-xs text-brand-600 hover:text-brand-700 font-medium">
+                  Ver todos →
+                </Link>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left text-xs font-semibold text-gray-400 uppercase pb-2">Ticket</th>
+                      <th className="text-left text-xs font-semibold text-gray-400 uppercase pb-2">Prioridad</th>
+                      <th className="text-left text-xs font-semibold text-gray-400 uppercase pb-2">Empresa</th>
+                      <th className="text-left text-xs font-semibold text-gray-400 uppercase pb-2">Técnico</th>
+                      <th className="text-right text-xs font-semibold text-gray-400 uppercase pb-2">Horas vencido</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {sla.overdueTickets.map((t: SlaOverdueTicket) => {
+                      const priorityCfg = PRIORITY_CONFIG[t.priority];
+                      return (
+                        <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="py-2.5">
+                            <Link href={`/tickets/${t.id}`} className="group">
+                              <span className="text-xs text-gray-400 font-mono">{t.ticketNumber}</span>
+                              <p className="text-sm font-medium text-gray-800 group-hover:text-brand-600 transition-colors truncate max-w-[200px]">
+                                {t.title}
+                              </p>
+                            </Link>
+                          </td>
+                          <td className="py-2.5">
+                            <div className="flex items-center gap-1.5">
+                              <div className={`w-2 h-2 rounded-full ${priorityCfg.dot}`} />
+                              <span className={`text-xs font-medium ${priorityCfg.color}`}>{priorityCfg.label}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 text-xs text-gray-600">{t.company.name}</td>
+                          <td className="py-2.5 text-xs text-gray-600">
+                            {t.assignedTo ? `${t.assignedTo.firstName} ${t.assignedTo.lastName}` : '—'}
+                          </td>
+                          <td className="py-2.5 text-right">
+                            <span className={cn(
+                              'text-xs font-bold px-2 py-0.5 rounded-full',
+                              t.hoursOverdue > 24 ? 'text-red-700 bg-red-100' : 'text-orange-700 bg-orange-100'
+                            )}>
+                              +{t.hoursOverdue}h
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

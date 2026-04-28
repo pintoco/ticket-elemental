@@ -68,6 +68,8 @@ async function bootstrap() {
     .addTag('dashboard', 'Dashboard metrics')
     .addTag('comments', 'Ticket comments')
     .addTag('notifications', 'Notification system')
+    .addTag('assets', 'Asset management')
+    .addTag('reports', 'PDF report generation')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

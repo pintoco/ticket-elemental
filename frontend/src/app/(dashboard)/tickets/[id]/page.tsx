@@ -6,10 +6,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Edit2, Send, Lock, Unlock, MapPin,
   Camera, Server, Clock, User, Building2, Tag,
-  CheckCircle2, AlertTriangle, ImageIcon, X
+  CheckCircle2, AlertTriangle, ImageIcon, X, FileDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { ticketsApi, commentsApi } from '@/lib/api';
+import { ticketsApi, commentsApi, reportsApi } from '@/lib/api';
 import {
   STATUS_CONFIG, PRIORITY_CONFIG, CATEGORY_CONFIG, TYPE_CONFIG,
   formatDate, formatRelativeDate, getInitials, cn
@@ -20,9 +20,11 @@ import Link from 'next/link';
 
 const STATUS_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   OPEN: ['IN_PROGRESS', 'PENDING', 'CLOSED'],
-  IN_PROGRESS: ['PENDING', 'RESOLVED', 'CLOSED'],
-  PENDING: ['IN_PROGRESS', 'RESOLVED'],
-  RESOLVED: ['CLOSED', 'OPEN'],
+  IN_PROGRESS: ['ON_SITE', 'PENDING', 'RESOLVED', 'CLOSED'],
+  PENDING: ['IN_PROGRESS', 'ON_SITE', 'RESOLVED'],
+  ON_SITE: ['IN_PROGRESS', 'RESOLVED', 'PENDING'],
+  RESOLVED: ['VALIDATED', 'CLOSED', 'OPEN'],
+  VALIDATED: ['CLOSED'],
   CLOSED: ['OPEN'],
 };
 
@@ -35,6 +37,7 @@ export default function TicketDetailPage() {
   const [isInternal, setIsInternal] = useState(false);
   const [commentImages, setCommentImages] = useState<File[]>([]);
   const [commentPreviews, setCommentPreviews] = useState<string[]>([]);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const { data: ticket, isLoading } = useQuery({
     queryKey: ['ticket', id],
@@ -94,6 +97,18 @@ export default function TicketDetailPage() {
     updateMutation.mutate({ status: newStatus });
   };
 
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      await reportsApi.getTicketPdf(id);
+      toast.success('PDF descargado');
+    } catch {
+      toast.error('Error al generar PDF');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   const handleSubmitComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!comment.trim()) return;
@@ -143,6 +158,23 @@ export default function TicketDetailPage() {
             <span className="font-medium">{ticket.creator.firstName} {ticket.creator.lastName}</span>
             {' · '}{ticket.company.name}
           </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf}
+            className="btn-secondary flex items-center gap-2 text-sm"
+            title="Descargar informe PDF"
+          >
+            <FileDown className="w-4 h-4" />
+            {downloadingPdf ? 'Generando...' : 'PDF'}
+          </button>
+          {canEdit && (
+            <Link href={`/tickets/${ticket.id}/edit`} className="btn-secondary flex items-center gap-2 text-sm">
+              <Edit2 className="w-4 h-4" />
+              Editar
+            </Link>
+          )}
         </div>
       </div>
 

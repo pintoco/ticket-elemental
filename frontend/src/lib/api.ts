@@ -156,6 +156,21 @@ export const dashboardApi = {
   getMetrics: () => api.get('/dashboard/metrics'),
 };
 
+// Reports endpoints
+export const reportsApi = {
+  getTicketPdf: async (ticketId: string): Promise<void> => {
+    const response = await api.get(`/reports/ticket/${ticketId}`, {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ticket-${ticketId}.pdf`;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
+};
+
 // Assets endpoints
 export const assetsApi = {
   getAll: (params?: Record<string, any>) => api.get('/assets', { params }),

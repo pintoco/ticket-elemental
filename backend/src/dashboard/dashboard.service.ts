@@ -132,6 +132,81 @@ export class DashboardService {
       recentTickets,
       trend: ticketsTrend,
       avgResolutionHours: avgResolutionTime,
+      sla: await this.getSlaMetrics(baseWhere),
+    };
+  }
+
+  private async getSlaMetrics(baseWhere: any) {
+    const now = new Date();
+
+    // Active tickets (not resolved/validated/closed) with a defined SLA
+    const activeWithSla = await this.prisma.ticket.findMany({
+      where: {
+        ...baseWhere,
+        slaHours: { not: null },
+        status: {
+          notIn: [TicketStatus.RESOLVED, TicketStatus.VALIDATED, TicketStatus.CLOSED],
+        },
+      },
+      select: {
+        id: true,
+        ticketNumber: true,
+        title: true,
+        priority: true,
+        status: true,
+        slaHours: true,
+        createdAt: true,
+        assignedTo: { select: { firstName: true, lastName: true } },
+        company: { select: { name: true } },
+      },
+    });
+
+    const overdue = activeWithSla.filter((t) => {
+      const deadline = new Date(t.createdAt);
+      deadline.setHours(deadline.getHours() + t.slaHours!);
+      return now > deadline;
+    });
+
+    // Compliance: resolved tickets where resolvedAt <= slaDeadline
+    const resolvedWithSla = await this.prisma.ticket.findMany({
+      where: {
+        ...baseWhere,
+        slaHours: { not: null },
+        resolvedAt: { not: null },
+        status: { in: [TicketStatus.RESOLVED, TicketStatus.VALIDATED, TicketStatus.CLOSED] },
+      },
+      select: { createdAt: true, resolvedAt: true, slaHours: true },
+      take: 200,
+    });
+
+    const compliant = resolvedWithSla.filter((t) => {
+      const deadline = new Date(t.createdAt);
+      deadline.setHours(deadline.getHours() + t.slaHours!);
+      return new Date(t.resolvedAt!) <= deadline;
+    });
+
+    const complianceRate =
+      resolvedWithSla.length > 0
+        ? Math.round((compliant.length / resolvedWithSla.length) * 100)
+        : null;
+
+    // Enrich overdue with hours overdue
+    const overdueEnriched = overdue
+      .map((t) => {
+        const deadline = new Date(t.createdAt);
+        deadline.setHours(deadline.getHours() + t.slaHours!);
+        return {
+          ...t,
+          hoursOverdue: Math.round((now.getTime() - deadline.getTime()) / (1000 * 60 * 60)),
+        };
+      })
+      .sort((a, b) => b.hoursOverdue - a.hoursOverdue)
+      .slice(0, 8);
+
+    return {
+      overdueCount: overdue.length,
+      complianceRate,
+      overdueTickets: overdueEnriched,
     };
   }
 
