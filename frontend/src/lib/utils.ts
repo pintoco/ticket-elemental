@@ -2,7 +2,7 @@ import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { TicketStatus, TicketPriority, TicketCategory, TicketType, UserRole } from '@/types';
+import type { TicketStatus, TicketPriority, TicketCategory, TicketType, UserRole, AssetType, AssetStatus } from '@/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -24,8 +24,31 @@ export const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string;
   OPEN: { label: 'Abierto', color: 'text-blue-700', bg: 'bg-blue-100' },
   IN_PROGRESS: { label: 'En Proceso', color: 'text-yellow-700', bg: 'bg-yellow-100' },
   PENDING: { label: 'Pendiente', color: 'text-orange-700', bg: 'bg-orange-100' },
+  ON_SITE: { label: 'En Terreno', color: 'text-purple-700', bg: 'bg-purple-100' },
   RESOLVED: { label: 'Resuelto', color: 'text-green-700', bg: 'bg-green-100' },
+  VALIDATED: { label: 'Validado', color: 'text-teal-700', bg: 'bg-teal-100' },
   CLOSED: { label: 'Cerrado', color: 'text-gray-700', bg: 'bg-gray-100' },
+};
+
+export const ASSET_TYPE_CONFIG: Record<AssetType, { label: string; icon: string }> = {
+  CAMERA: { label: 'Cámara', icon: '📷' },
+  NVR: { label: 'NVR', icon: '🎬' },
+  DVR: { label: 'DVR', icon: '📼' },
+  SWITCH: { label: 'Switch', icon: '🔀' },
+  ROUTER: { label: 'Router', icon: '📡' },
+  FIBER_LINK: { label: 'Enlace Fibra', icon: '🔌' },
+  SERVER: { label: 'Servidor', icon: '🖥️' },
+  UPS: { label: 'UPS', icon: '🔋' },
+  ACCESS_POINT: { label: 'Access Point', icon: '📶' },
+  OTHER: { label: 'Otro', icon: '⚙️' },
+};
+
+export const ASSET_STATUS_CONFIG: Record<AssetStatus, { label: string; color: string; bg: string }> = {
+  ACTIVE: { label: 'Activo', color: 'text-green-700', bg: 'bg-green-100' },
+  INACTIVE: { label: 'Inactivo', color: 'text-gray-700', bg: 'bg-gray-100' },
+  MAINTENANCE: { label: 'En Mantención', color: 'text-yellow-700', bg: 'bg-yellow-100' },
+  FAULTY: { label: 'Falla', color: 'text-red-700', bg: 'bg-red-100' },
+  RETIRED: { label: 'Retirado', color: 'text-gray-500', bg: 'bg-gray-50' },
 };
 
 export const PRIORITY_CONFIG: Record<TicketPriority, { label: string; color: string; bg: string; dot: string }> = {

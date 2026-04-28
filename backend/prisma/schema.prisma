@@ -26,7 +26,9 @@ enum TicketStatus {
   OPEN
   IN_PROGRESS
   PENDING
+  ON_SITE
   RESOLVED
+  VALIDATED
   CLOSED
 }
 
@@ -64,6 +66,27 @@ enum NotificationType {
   MENTION
 }
 
+enum AssetType {
+  CAMERA
+  NVR
+  DVR
+  SWITCH
+  ROUTER
+  FIBER_LINK
+  SERVER
+  UPS
+  ACCESS_POINT
+  OTHER
+}
+
+enum AssetStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  FAULTY
+  RETIRED
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -83,6 +106,7 @@ model Company {
 
   users       User[]
   tickets     Ticket[]
+  assets      Asset[]
   auditLogs   AuditLog[]
 
   @@map("companies")
@@ -115,6 +139,34 @@ model User {
   @@map("users")
 }
 
+model Asset {
+  id                String      @id @default(uuid())
+  name              String
+  type              AssetType
+  status            AssetStatus @default(ACTIVE)
+  brand             String?
+  model             String?
+  serialNumber      String?
+  ipAddress         String?
+  macAddress        String?
+  location          String?
+  floor             String?
+  notes             String?
+  installedAt       DateTime?
+  lastMaintenanceAt DateTime?
+  warrantyUntil     DateTime?
+
+  companyId         String
+  company           Company     @relation(fields: [companyId], references: [id])
+
+  tickets           Ticket[]
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@map("assets")
+}
+
 model Ticket {
   id              String         @id @default(uuid())
   ticketNumber    String         @unique
@@ -131,7 +183,9 @@ model Ticket {
   ipAddress       String?
   slaHours        Int?
   scheduledAt     DateTime?
+  onSiteAt        DateTime?
   resolvedAt      DateTime?
+  validatedAt     DateTime?
   closedAt        DateTime?
 
   // Tags
@@ -146,6 +200,9 @@ model Ticket {
 
   assignedToId    String?
   assignedTo      User?          @relation("AssignedTechnician", fields: [assignedToId], references: [id])
+
+  assetId         String?
+  asset           Asset?         @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   comments        TicketComment[]
   attachments     Attachment[]

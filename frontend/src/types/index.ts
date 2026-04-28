@@ -1,9 +1,12 @@
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'TECHNICIAN' | 'OPERATOR' | 'CLIENT';
 
-export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'PENDING' | 'RESOLVED' | 'CLOSED';
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'PENDING' | 'ON_SITE' | 'RESOLVED' | 'VALIDATED' | 'CLOSED';
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type TicketType = 'INCIDENT' | 'MAINTENANCE' | 'INSTALLATION' | 'EMERGENCY';
 export type TicketCategory = 'CAMERAS' | 'FIBER_OPTIC' | 'NETWORK' | 'SERVERS' | 'VIDEO_WALL' | 'DSS_PRO' | 'NVR' | 'OTHER';
+
+export type AssetType = 'CAMERA' | 'NVR' | 'DVR' | 'SWITCH' | 'ROUTER' | 'FIBER_LINK' | 'SERVER' | 'UPS' | 'ACCESS_POINT' | 'OTHER';
+export type AssetStatus = 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'FAULTY' | 'RETIRED';
 
 export interface Company {
   id: string;
@@ -33,6 +36,29 @@ export interface User {
   company: Pick<Company, 'id' | 'name' | 'slug'>;
 }
 
+export interface Asset {
+  id: string;
+  name: string;
+  type: AssetType;
+  status: AssetStatus;
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+  ipAddress?: string;
+  macAddress?: string;
+  location?: string;
+  floor?: string;
+  notes?: string;
+  installedAt?: string;
+  lastMaintenanceAt?: string;
+  warrantyUntil?: string;
+  companyId: string;
+  company: Pick<Company, 'id' | 'name' | 'slug'>;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { tickets: number };
+}
+
 export interface Ticket {
   id: string;
   ticketNumber: string;
@@ -47,7 +73,9 @@ export interface Ticket {
   ipAddress?: string;
   slaHours?: number;
   scheduledAt?: string;
+  onSiteAt?: string;
   resolvedAt?: string;
+  validatedAt?: string;
   closedAt?: string;
   tags: string[];
   companyId: string;
@@ -56,6 +84,8 @@ export interface Ticket {
   creator: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>;
   assignedToId?: string;
   assignedTo?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>;
+  assetId?: string;
+  asset?: Pick<Asset, 'id' | 'name' | 'type'>;
   createdAt: string;
   updatedAt: string;
   _count?: { comments: number; attachments: number };

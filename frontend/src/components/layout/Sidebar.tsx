@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  Package,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
@@ -35,9 +36,10 @@ const navItems = [
   },
   {
     title: 'Gestión',
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ['SUPER_ADMIN', 'ADMIN', 'TECHNICIAN'],
     items: [
-      { href: '/users', label: 'Usuarios', icon: Users },
+      { href: '/assets', label: 'Activos', icon: Package },
+      { href: '/users', label: 'Usuarios', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN'] },
       { href: '/companies', label: 'Empresas', icon: Building2, roles: ['SUPER_ADMIN'] },
     ],
   },

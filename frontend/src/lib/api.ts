@@ -156,6 +156,15 @@ export const dashboardApi = {
   getMetrics: () => api.get('/dashboard/metrics'),
 };
 
+// Assets endpoints
+export const assetsApi = {
+  getAll: (params?: Record<string, any>) => api.get('/assets', { params }),
+  getById: (id: string) => api.get(`/assets/${id}`),
+  create: (data: any) => api.post('/assets', data),
+  update: (id: string, data: any) => api.patch(`/assets/${id}`, data),
+  delete: (id: string) => api.delete(`/assets/${id}`),
+};
+
 // Notifications endpoints
 export const notificationsApi = {
   getAll: () => api.get('/notifications'),

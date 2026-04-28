@@ -11,6 +11,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/tickets': 'Tickets',
   '/tickets/new': 'Nuevo Ticket',
+  '/assets': 'Activos',
   '/users': 'Usuarios',
   '/companies': 'Empresas',
   '/notifications': 'Notificaciones',

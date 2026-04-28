@@ -180,8 +180,14 @@ export class TicketsService {
     const updateData: any = { ...dto };
 
     // Handle status transitions with timestamps
+    if (dto.status === TicketStatus.ON_SITE && !(ticket as any).onSiteAt) {
+      updateData.onSiteAt = new Date();
+    }
     if (dto.status === TicketStatus.RESOLVED && !ticket.resolvedAt) {
       updateData.resolvedAt = new Date();
+    }
+    if (dto.status === TicketStatus.VALIDATED && !(ticket as any).validatedAt) {
+      updateData.validatedAt = new Date();
     }
     if (dto.status === TicketStatus.CLOSED && !ticket.closedAt) {
       updateData.closedAt = new Date();

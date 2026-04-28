@@ -70,6 +70,11 @@ export class CreateTicketDto {
   @IsUUID()
   companyId?: string;
 
+  @ApiPropertyOptional({ example: 'uuid-of-asset' })
+  @IsOptional()
+  @IsUUID()
+  assetId?: string;
+
   @ApiPropertyOptional({ example: ['fibra', 'urgente', 'cenco'] })
   @IsOptional()
   @IsArray()
@@ -137,6 +142,11 @@ export class UpdateTicketDto {
   @IsOptional()
   @IsUUID()
   assignedToId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  assetId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
