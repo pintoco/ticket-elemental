@@ -2,13 +2,17 @@
 const nextConfig = {
   output: 'standalone',
   images: {
-    domains: ['localhost', 'api.elementalpro.cl'],
     remotePatterns: [
       {
         protocol: 'http',
         hostname: 'localhost',
         port: '3001',
         pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
       },
     ],
   },

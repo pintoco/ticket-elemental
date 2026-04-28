@@ -1,0 +1,44 @@
+{
+  "name": "Elemental Pro Help Desk",
+  "short_name": "EP Help Desk",
+  "description": "Sistema de Gestión de Tickets Técnicos - Elemental Pro",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "lang": "es",
+  "categories": ["productivity", "business"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Nuevo Ticket",
+      "short_name": "Nuevo",
+      "description": "Crear un nuevo ticket de soporte",
+      "url": "/tickets/new",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Mis Tickets",
+      "short_name": "Tickets",
+      "description": "Ver todos los tickets",
+      "url": "/tickets",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    }
+  ]
+}

@@ -12,18 +12,15 @@ import {
   LogOut,
   Shield,
   PlusCircle,
-  ClipboardList,
-  Menu,
-  X,
   ChevronRight,
   Package,
+  ChevronLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 import { authApi } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { useState } from 'react';
 
 const navItems = [
   {
@@ -55,9 +52,11 @@ const navItems = [
 interface SidebarProps {
   collapsed?: boolean;
   onToggle?: () => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, clearAuth } = useAuthStore();
@@ -81,11 +80,20 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     return roles.includes(user?.role || '');
   };
 
+  const handleLinkClick = () => {
+    onMobileClose?.();
+  };
+
   return (
     <aside
       className={cn(
         'fixed left-0 top-0 h-full bg-sidebar border-r border-white/5 flex flex-col transition-all duration-300 z-40',
-        collapsed ? 'w-16' : 'w-64',
+        // Desktop width
+        collapsed ? 'lg:w-16' : 'lg:w-64',
+        // Always 64px wide base, overridden to 256px on desktop when not collapsed
+        'w-64',
+        // Mobile: hide/show via translate; desktop: always visible
+        mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
       )}
     >
       {/* Logo */}
@@ -99,15 +107,36 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <p className="text-gray-500 text-xs">Help Desk</p>
           </div>
         )}
+        {/* Desktop collapse button */}
         {!collapsed && (
           <button
             onClick={onToggle}
-            className="ml-auto text-gray-500 hover:text-white transition-colors"
+            className="ml-auto text-gray-500 hover:text-white transition-colors hidden lg:flex"
+            title="Colapsar menú"
           >
-            <X className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4" />
           </button>
         )}
+        {/* Mobile close button */}
+        <button
+          onClick={onMobileClose}
+          className="ml-auto text-gray-500 hover:text-white transition-colors lg:hidden"
+          title="Cerrar menú"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
       </div>
+
+      {/* Desktop expand button when collapsed */}
+      {collapsed && (
+        <button
+          onClick={onToggle}
+          className="hidden lg:flex items-center justify-center h-10 mt-2 mx-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+          title="Expandir menú"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
@@ -129,15 +158,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     <Link
                       key={item.href}
                       href={item.href}
+                      onClick={handleLinkClick}
                       className={cn(
                         'sidebar-link',
                         active && 'active',
-                        collapsed && 'justify-center px-2',
+                        collapsed && 'lg:justify-center lg:px-2',
                       )}
                       title={collapsed ? item.label : undefined}
                     >
                       <Icon className="w-5 h-5 flex-shrink-0" />
-                      {!collapsed && <span>{item.label}</span>}
+                      <span className={cn(collapsed && 'lg:hidden')}>{item.label}</span>
                       {!collapsed && active && (
                         <ChevronRight className="w-4 h-4 ml-auto opacity-60" />
                       )}
@@ -152,29 +182,28 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* User section */}
       <div className="border-t border-white/5 p-3 flex-shrink-0">
-        <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
+        <div className={cn('flex items-center gap-3', collapsed && 'lg:justify-center')}>
           <div className="w-9 h-9 bg-brand-700 rounded-lg flex items-center justify-center flex-shrink-0">
             <span className="text-white text-xs font-bold">
               {user ? `${user.firstName[0]}${user.lastName[0]}` : '?'}
             </span>
           </div>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-medium truncate">
-                {user?.firstName} {user?.lastName}
-              </p>
-              <p className="text-gray-500 text-xs truncate">{user?.email}</p>
-            </div>
-          )}
-          {!collapsed && (
-            <button
-              onClick={handleLogout}
-              className="text-gray-500 hover:text-red-400 transition-colors ml-auto"
-              title="Cerrar sesión"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          )}
+          <div className={cn('flex-1 min-w-0', collapsed && 'lg:hidden')}>
+            <p className="text-white text-sm font-medium truncate">
+              {user?.firstName} {user?.lastName}
+            </p>
+            <p className="text-gray-500 text-xs truncate">{user?.email}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className={cn(
+              'text-gray-500 hover:text-red-400 transition-colors',
+              collapsed ? 'lg:ml-0' : 'ml-auto',
+            )}
+            title="Cerrar sesión"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </aside>

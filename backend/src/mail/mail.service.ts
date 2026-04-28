@@ -5,13 +5,22 @@ import { Resend } from 'resend';
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private resend: Resend;
+  private resend: Resend | null = null;
 
   constructor(private readonly config: ConfigService) {
-    this.resend = new Resend(config.get<string>('RESEND_API_KEY'));
+    const apiKey = config.get<string>('RESEND_API_KEY');
+    if (apiKey) {
+      this.resend = new Resend(apiKey);
+    } else {
+      this.logger.warn('RESEND_API_KEY not set — email sending disabled');
+    }
   }
 
   async sendTicketCreated(ticket: any): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn(`Skipping email for ticket ${ticket.ticketNumber} — RESEND_API_KEY not configured`);
+      return;
+    }
     const frontendUrl = this.config
       .get<string>('FRONTEND_URL', 'https://ticket.elementalpro.cl')
       .split(',')[0]

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="96" fill="#2563eb"/>
+  <path d="M256 96L160 140v96c0 66 44 128 96 144 52-16 96-78 96-144v-96L256 96z" fill="#1e3a8a" opacity="0.4"/>
+  <path d="M256 112L168 152v88c0 60 40 116 88 130 48-14 88-70 88-130v-88L256 112z" fill="white" opacity="0.15"/>
+  <path d="M256 128L176 164v80c0 55 37 106 80 120 43-14 80-65 80-120v-80L256 128z" fill="white"/>
+  <path d="M228 248l-20-20 12-12 8 8 32-32 12 12-44 44z" fill="#2563eb"/>
+  <text x="256" y="420" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="72" fill="white" opacity="0.9">EP</text>
+</svg>

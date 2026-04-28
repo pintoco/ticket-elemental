@@ -2,18 +2,19 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-// pdfmake with built-in Helvetica (no font files required)
+// pdfmake 0.3.x high-level API — handles URLResolver/virtualfs internally
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const PdfPrinter = require('pdfmake');
-
-const FONTS = {
+const pdfmakeInstance = require('pdfmake/js/index');
+pdfmakeInstance.setFonts({
   Helvetica: {
     normal: 'Helvetica',
     bold: 'Helvetica-Bold',
     italics: 'Helvetica-Oblique',
     bolditalics: 'Helvetica-BoldOblique',
   },
-};
+});
+// Suppress "no URL access policy" warning — we only use built-in PDF fonts
+pdfmakeInstance.setUrlAccessPolicy(() => false);
 
 const COLORS = {
   primary: '#1e3a5f',
@@ -424,14 +425,7 @@ export class ReportsService {
   }
 
   private buildPdf(docDefinition: any): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      const printer = new PdfPrinter(FONTS);
-      const doc = printer.createPdfKitDocument(docDefinition);
-      const chunks: Buffer[] = [];
-      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', reject);
-      doc.end();
-    });
+    const doc = pdfmakeInstance.createPdf(docDefinition);
+    return doc.getBuffer();
   }
 }
