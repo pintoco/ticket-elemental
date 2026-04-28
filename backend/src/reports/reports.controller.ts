@@ -22,7 +22,7 @@ export class ReportsController {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="ticket-${id}.pdf"`,
+      'Content-Disposition': `inline; filename="ticket-${id}.pdf"`,
       'Content-Length': buffer.length,
     });
 

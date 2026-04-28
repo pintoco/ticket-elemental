@@ -163,11 +163,13 @@ export const reportsApi = {
       responseType: 'blob',
     });
     const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `ticket-${ticketId}.pdf`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const win = window.open(url, '_blank');
+    // Revoke the object URL after the window has had time to load it
+    if (win) {
+      win.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+    } else {
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }
   },
 };
 
