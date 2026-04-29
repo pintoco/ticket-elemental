@@ -137,6 +137,8 @@ export class CommentsService {
   }
 
   async addAttachments(commentId: string, files: Express.Multer.File[], requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
+    if (!files || files.length === 0) return [];
+
     const comment = await this.prisma.ticketComment.findUnique({
       where: { id: commentId },
       include: { ticket: true },

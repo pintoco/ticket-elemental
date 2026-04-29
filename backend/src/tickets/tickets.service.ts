@@ -350,6 +350,8 @@ export class TicketsService {
   }
 
   async addAttachments(ticketId: string, files: Express.Multer.File[], requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
+    if (!files || files.length === 0) return [];
+
     const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) throw new NotFoundException('Ticket not found');
 

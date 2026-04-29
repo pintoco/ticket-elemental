@@ -41,6 +41,7 @@ export class AuthController {
 
   @Post('refresh')
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @UseGuards(RefreshJwtGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
