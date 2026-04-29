@@ -42,6 +42,9 @@ async function bootstrap() {
     'http://localhost:3000',
   ];
 
+  // Trust Railway/proxy headers so req.ip reflects the real client IP
+  app.set('trust proxy', 1);
+
   // Security
   app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },

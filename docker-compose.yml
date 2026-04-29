@@ -46,8 +46,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-ticket_user}:${POSTGRES_PASSWORD:-ticket_pass_2024}@postgres:5432/${POSTGRES_DB:-ticket_db}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-elementalpro_jwt_secret_2024_super_secure}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-elementalpro_refresh_secret_2024}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env (min 32 chars)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be set in .env (min 32 chars)}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       PORT: 3001

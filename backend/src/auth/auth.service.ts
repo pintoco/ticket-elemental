@@ -39,11 +39,12 @@ export class AuthService {
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role, user.companyId);
+    const hashedRefresh = await bcrypt.hash(tokens.refreshToken, 10);
 
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        refreshToken: tokens.refreshToken,
+        refreshToken: hashedRefresh,
         lastLoginAt: new Date(),
       },
     });
@@ -75,10 +76,11 @@ export class AuthService {
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role, user.companyId);
+    const hashedRefresh = await bcrypt.hash(tokens.refreshToken, 10);
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { refreshToken: tokens.refreshToken },
+      data: { refreshToken: hashedRefresh },
     });
 
     return tokens;

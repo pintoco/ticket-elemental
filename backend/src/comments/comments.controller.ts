@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, ParseUUIDPipe, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Req, ParseUUIDPipe, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import { Request } from 'express';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { CommentsService } from './comments.service';
@@ -17,8 +18,9 @@ export class CommentsController {
     @Param('ticketId', ParseUUIDPipe) ticketId: string,
     @Body() dto: CreateCommentDto,
     @CurrentUser() user: any,
+    @Req() req: Request,
   ) {
-    return this.commentsService.create(ticketId, dto, user);
+    return this.commentsService.create(ticketId, dto, user, { ip: req.ip, userAgent: req.get('user-agent') });
   }
 
   @Get()
@@ -49,13 +51,14 @@ export class CommentsController {
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFiles() files: Express.Multer.File[],
     @CurrentUser() user: any,
+    @Req() req: Request,
   ) {
-    return this.commentsService.addAttachments(id, files, user);
+    return this.commentsService.addAttachments(id, files, user, { ip: req.ip, userAgent: req.get('user-agent') });
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a comment' })
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
-    return this.commentsService.remove(id, user);
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any, @Req() req: Request) {
+    return this.commentsService.remove(id, user, { ip: req.ip, userAgent: req.get('user-agent') });
   }
 }

@@ -33,7 +33,7 @@ export class TicketsService {
     return `${prefix}${String(seq).padStart(5, '0')}`;
   }
 
-  async create(dto: CreateTicketDto, requestingUser: any) {
+  async create(dto: CreateTicketDto, requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
     const companyId = dto.companyId || requestingUser.companyId;
 
     if (requestingUser.role !== UserRole.SUPER_ADMIN && companyId !== requestingUser.companyId) {
@@ -79,6 +79,8 @@ export class TicketsService {
               userId: requestingUser.id,
               companyId: requestingUser.companyId,
               ticketId: created.id,
+              ipAddress: meta?.ip,
+              userAgent: meta?.userAgent,
             },
           });
 
@@ -201,7 +203,7 @@ export class TicketsService {
     return ticket;
   }
 
-  async update(id: string, dto: UpdateTicketDto, requestingUser: any) {
+  async update(id: string, dto: UpdateTicketDto, requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
     const ticket = await this.findOne(id, requestingUser);
 
     const canEdit =
@@ -268,6 +270,8 @@ export class TicketsService {
             userId: requestingUser.id,
             companyId: requestingUser.companyId,
             ticketId: id,
+            ipAddress: meta?.ip,
+            userAgent: meta?.userAgent,
           },
         });
       }
@@ -298,7 +302,7 @@ export class TicketsService {
     return updated;
   }
 
-  async remove(id: string, requestingUser: any) {
+  async remove(id: string, requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
     if (requestingUser.role !== UserRole.SUPER_ADMIN && requestingUser.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Only admins can delete tickets');
     }
@@ -320,6 +324,8 @@ export class TicketsService {
           },
           userId: requestingUser.id,
           companyId: requestingUser.companyId,
+          ipAddress: meta?.ip,
+          userAgent: meta?.userAgent,
         },
       });
       await tx.ticket.delete({ where: { id } });
@@ -343,7 +349,7 @@ export class TicketsService {
     });
   }
 
-  async addAttachments(ticketId: string, files: Express.Multer.File[], requestingUser: any) {
+  async addAttachments(ticketId: string, files: Express.Multer.File[], requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
     const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) throw new NotFoundException('Ticket not found');
 
@@ -353,11 +359,12 @@ export class TicketsService {
 
     const attachments = await Promise.all(
       files.map(async (file) => {
-        const url = await this.cloudinaryService.uploadImage(file.buffer);
+        const url = await this.cloudinaryService.uploadFile(file.buffer);
+        const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
         return this.prisma.attachment.create({
           data: {
-            filename: file.originalname,
-            originalName: file.originalname,
+            filename: safeName,
+            originalName: safeName,
             mimeType: file.mimetype,
             size: file.size,
             url,
@@ -379,6 +386,8 @@ export class TicketsService {
         userId: requestingUser.id,
         companyId: requestingUser.companyId,
         ticketId,
+        ipAddress: meta?.ip,
+        userAgent: meta?.userAgent,
       },
     });
 

@@ -8,6 +8,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 const ALLOWED_MIME = /^(image\/(jpeg|jpg|png|webp)|application\/pdf)$/;
+const ALLOWED_EXT = new Set(['jpg', 'jpeg', 'png', 'webp', 'pdf']);
+const DANGEROUS_DOUBLE_EXT = /\.(exe|php|js|sh|bat|cmd|ps1|py|rb|pl|asp|aspx|jsp|cgi)\./i;
 
 @Module({
   imports: [
@@ -19,6 +21,13 @@ const ALLOWED_MIME = /^(image\/(jpeg|jpg|png|webp)|application\/pdf)$/;
             new BadRequestException('Solo se permiten imágenes (jpg, png, webp) y archivos PDF'),
             false,
           );
+        }
+        if (DANGEROUS_DOUBLE_EXT.test(file.originalname)) {
+          return cb(new BadRequestException('Nombre de archivo contiene una extensión peligrosa'), false);
+        }
+        const ext = file.originalname.split('.').pop()?.toLowerCase() ?? '';
+        if (!ALLOWED_EXT.has(ext)) {
+          return cb(new BadRequestException(`Extensión .${ext} no permitida`), false);
         }
         cb(null, true);
       },

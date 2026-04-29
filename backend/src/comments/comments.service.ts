@@ -13,7 +13,7 @@ export class CommentsService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  async create(ticketId: string, dto: CreateCommentDto, requestingUser: any) {
+  async create(ticketId: string, dto: CreateCommentDto, requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
     const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) throw new NotFoundException('Ticket not found');
 
@@ -56,6 +56,8 @@ export class CommentsService {
         userId: requestingUser.id,
         companyId: requestingUser.companyId,
         ticketId,
+        ipAddress: meta?.ip,
+        userAgent: meta?.userAgent,
       },
     });
 
@@ -134,7 +136,7 @@ export class CommentsService {
     });
   }
 
-  async addAttachments(commentId: string, files: Express.Multer.File[], requestingUser: any) {
+  async addAttachments(commentId: string, files: Express.Multer.File[], requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
     const comment = await this.prisma.ticketComment.findUnique({
       where: { id: commentId },
       include: { ticket: true },
@@ -150,11 +152,12 @@ export class CommentsService {
 
     const attachments = await Promise.all(
       files.map(async (file) => {
-        const url = await this.cloudinaryService.uploadImage(file.buffer);
+        const url = await this.cloudinaryService.uploadFile(file.buffer);
+        const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
         return this.prisma.attachment.create({
           data: {
-            filename: file.originalname,
-            originalName: file.originalname,
+            filename: safeName,
+            originalName: safeName,
             mimeType: file.mimetype,
             size: file.size,
             url,
@@ -176,13 +179,15 @@ export class CommentsService {
         userId: requestingUser.id,
         companyId: requestingUser.companyId,
         ticketId: comment.ticketId,
+        ipAddress: meta?.ip,
+        userAgent: meta?.userAgent,
       },
     });
 
     return attachments;
   }
 
-  async remove(id: string, requestingUser: any) {
+  async remove(id: string, requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
     const comment = await this.prisma.ticketComment.findUnique({
       where: { id },
       include: { ticket: true },
@@ -213,6 +218,8 @@ export class CommentsService {
         userId: requestingUser.id,
         companyId: requestingUser.companyId,
         ticketId: comment.ticketId,
+        ipAddress: meta?.ip,
+        userAgent: meta?.userAgent,
       },
     });
 

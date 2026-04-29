@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -29,7 +30,12 @@ export class RefreshJwtStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
       where: { id: payload.sub },
     });
 
-    if (!user || !user.isActive || user.refreshToken !== refreshToken) {
+    if (!user || !user.isActive || !user.refreshToken) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const isTokenValid = await bcrypt.compare(refreshToken, user.refreshToken);
+    if (!isTokenValid) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 

@@ -7,10 +7,12 @@ import {
   Body,
   Param,
   Query,
+  Req,
   ParseUUIDPipe,
   UseInterceptors,
   UploadedFiles,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { TicketsService } from './tickets.service';
@@ -27,8 +29,8 @@ export class TicketsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new ticket' })
-  create(@Body() dto: CreateTicketDto, @CurrentUser() user: any) {
-    return this.ticketsService.create(dto, user);
+  create(@Body() dto: CreateTicketDto, @CurrentUser() user: any, @Req() req: Request) {
+    return this.ticketsService.create(dto, user, { ip: req.ip, userAgent: req.get('user-agent') });
   }
 
   @Get()
@@ -55,8 +57,9 @@ export class TicketsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTicketDto,
     @CurrentUser() user: any,
+    @Req() req: Request,
   ) {
-    return this.ticketsService.update(id, dto, user);
+    return this.ticketsService.update(id, dto, user, { ip: req.ip, userAgent: req.get('user-agent') });
   }
 
   @Post(':id/attachments')
@@ -67,14 +70,15 @@ export class TicketsController {
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFiles() files: Express.Multer.File[],
     @CurrentUser() user: any,
+    @Req() req: Request,
   ) {
-    return this.ticketsService.addAttachments(id, files, user);
+    return this.ticketsService.addAttachments(id, files, user, { ip: req.ip, userAgent: req.get('user-agent') });
   }
 
   @Delete(':id')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @ApiOperation({ summary: 'Delete a ticket' })
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
-    return this.ticketsService.remove(id, user);
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any, @Req() req: Request) {
+    return this.ticketsService.remove(id, user, { ip: req.ip, userAgent: req.get('user-agent') });
   }
 }

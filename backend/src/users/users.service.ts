@@ -100,9 +100,18 @@ export class UsersService {
   async update(id: string, dto: UpdateUserDto, requestingUser: any) {
     const user = await this.findOne(id, requestingUser);
 
-    // Prevent non-super-admin from escalating roles
-    if (dto.role && requestingUser.role !== UserRole.SUPER_ADMIN) {
-      if (dto.role === UserRole.SUPER_ADMIN) throw new ForbiddenException('Cannot assign SUPER_ADMIN role');
+    if (dto.role !== undefined && requestingUser.role !== UserRole.SUPER_ADMIN) {
+      if (dto.role === UserRole.SUPER_ADMIN || dto.role === UserRole.TECHNICIAN) {
+        throw new ForbiddenException('Solo SUPER_ADMIN puede asignar roles de técnico o super administrador');
+      }
+    }
+
+    // SUPER_ADMIN assigning TECHNICIAN/SUPER_ADMIN: target user must belong to Elemental Pro
+    if (dto.role === UserRole.TECHNICIAN || dto.role === UserRole.SUPER_ADMIN) {
+      const mainCompany = await this.prisma.company.findFirst({ where: { slug: 'elementalpro' } });
+      if (!mainCompany || user.companyId !== mainCompany.id) {
+        throw new BadRequestException('Los técnicos y super administradores solo pueden pertenecer a Elemental Pro');
+      }
     }
 
     return this.prisma.user.update({
