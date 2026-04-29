@@ -2,9 +2,8 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-  BadRequestException,
 } from '@nestjs/common';
-import { TicketStatus, UserRole } from '@prisma/client';
+import { Prisma, TicketStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -20,10 +19,18 @@ export class TicketsService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  private async generateTicketNumber(): Promise<string> {
-    const count = await this.prisma.ticket.count();
+  // Generates the next ticketNumber atomically inside a transaction.
+  // Uses Serializable isolation in create() to prevent duplicates under concurrency.
+  private async generateTicketNumber(tx: Prisma.TransactionClient): Promise<string> {
     const year = new Date().getFullYear();
-    return `EP-${year}-${String(count + 1).padStart(5, '0')}`;
+    const prefix = `EP-${year}-`;
+    const result = await tx.$queryRaw<Array<{ next_seq: number }>>`
+      SELECT COALESCE(MAX(CAST(RIGHT("ticketNumber", 5) AS INTEGER)), 0) + 1 AS next_seq
+      FROM tickets
+      WHERE "ticketNumber" LIKE ${`${prefix}%`}
+    `;
+    const seq = Number(result[0]?.next_seq ?? 1);
+    return `${prefix}${String(seq).padStart(5, '0')}`;
   }
 
   async create(dto: CreateTicketDto, requestingUser: any) {
@@ -33,27 +40,59 @@ export class TicketsService {
       throw new ForbiddenException('Cannot create tickets for other companies');
     }
 
-    const ticketNumber = await this.generateTicketNumber();
-
-    // Default SLA based on priority
-    const slaDefs = { CRITICAL: 2, HIGH: 4, MEDIUM: 8, LOW: 24 };
+    const slaDefs: Record<string, number> = { CRITICAL: 2, HIGH: 4, MEDIUM: 8, LOW: 24 };
     const slaHours = dto.slaHours || slaDefs[dto.priority] || 8;
 
-    const ticket = await this.prisma.ticket.create({
-      data: {
-        ...dto,
-        companyId,
-        creatorId: requestingUser.id,
-        ticketNumber,
-        slaHours,
-        scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
-      },
-      include: this.getTicketIncludes(),
-    });
+    let ticket: any;
+    // Retry loop handles rare Serializable conflicts (P2034) and
+    // unique-constraint races (P2002) on ticketNumber
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        ticket = await this.prisma.$transaction(async (tx) => {
+          const ticketNumber = await this.generateTicketNumber(tx);
+
+          const created = await tx.ticket.create({
+            data: {
+              ...dto,
+              companyId,
+              creatorId: requestingUser.id,
+              ticketNumber,
+              slaHours,
+              scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
+            },
+            include: this.getTicketIncludes(),
+          });
+
+          await tx.auditLog.create({
+            data: {
+              action: 'TICKET_CREATED',
+              entity: 'Ticket',
+              entityId: created.id,
+              newValues: {
+                ticketNumber: created.ticketNumber,
+                title: created.title,
+                status: created.status,
+                priority: created.priority,
+                category: created.category,
+                type: created.type,
+              },
+              userId: requestingUser.id,
+              companyId: requestingUser.companyId,
+              ticketId: created.id,
+            },
+          });
+
+          return created;
+        }, { isolationLevel: 'Serializable' });
+
+        break;
+      } catch (e: any) {
+        if (attempt === 2 || (e?.code !== 'P2034' && e?.code !== 'P2002')) throw e;
+      }
+    }
 
     this.mailService.sendTicketCreated(ticket).catch(() => null);
 
-    // Notify assigned technician
     if (ticket.assignedToId && ticket.assignedToId !== requestingUser.id) {
       this.notificationsService.createNotification({
         userId: ticket.assignedToId,
@@ -73,14 +112,12 @@ export class TicketsService {
 
     const where: any = {};
 
-    // Multi-tenant isolation
     if (requestingUser.role !== UserRole.SUPER_ADMIN) {
       where.companyId = requestingUser.companyId;
     } else if (rest.companyId) {
       where.companyId = rest.companyId;
     }
 
-    // Technicians only see their assigned tickets
     if (requestingUser.role === UserRole.TECHNICIAN) {
       where.assignedToId = requestingUser.id;
     }
@@ -113,9 +150,7 @@ export class TicketsService {
       this.prisma.ticket.findMany({
         where,
         include: this.getTicketIncludes(),
-        orderBy: [
-          { ticketNumber: 'desc' },
-        ],
+        orderBy: [{ ticketNumber: 'desc' }],
         skip,
         take: Number(limit),
       }),
@@ -179,7 +214,6 @@ export class TicketsService {
 
     const updateData: any = { ...dto };
 
-    // Handle status transitions with timestamps
     if (dto.status === TicketStatus.ON_SITE && !(ticket as any).onSiteAt) {
       updateData.onSiteAt = new Date();
     }
@@ -196,27 +230,50 @@ export class TicketsService {
       updateData.scheduledAt = new Date(dto.scheduledAt);
     }
 
-    // Log the update
-    await this.prisma.auditLog.create({
-      data: {
-        action: 'TICKET_UPDATED',
-        entity: 'Ticket',
-        entityId: id,
-        oldValues: { status: ticket.status, priority: ticket.priority },
-        newValues: { status: dto.status, priority: dto.priority },
-        userId: requestingUser.id,
-        companyId: requestingUser.companyId,
-        ticketId: id,
-      },
+    // Build diff of actually changed fields
+    const oldValues: Record<string, any> = {};
+    const newValues: Record<string, any> = {};
+
+    if (dto.status !== undefined && dto.status !== ticket.status) {
+      oldValues.status = ticket.status;
+      newValues.status = dto.status;
+    }
+    if (dto.priority !== undefined && dto.priority !== ticket.priority) {
+      oldValues.priority = ticket.priority;
+      newValues.priority = dto.priority;
+    }
+    if (dto.assignedToId !== undefined && dto.assignedToId !== ticket.assignedToId) {
+      oldValues.assignedToId = ticket.assignedToId;
+      newValues.assignedToId = dto.assignedToId;
+    }
+    if (dto.title !== undefined && dto.title !== ticket.title) {
+      oldValues.title = ticket.title;
+      newValues.title = dto.title;
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.ticket.update({
+        where: { id },
+        data: updateData,
+        include: this.getTicketIncludes(),
+      });
+      if (Object.keys(newValues).length > 0) {
+        await tx.auditLog.create({
+          data: {
+            action: 'TICKET_UPDATED',
+            entity: 'Ticket',
+            entityId: id,
+            oldValues,
+            newValues,
+            userId: requestingUser.id,
+            companyId: requestingUser.companyId,
+            ticketId: id,
+          },
+        });
+      }
+      return result;
     });
 
-    const updated = await this.prisma.ticket.update({
-      where: { id },
-      data: updateData,
-      include: this.getTicketIncludes(),
-    });
-
-    // Notify creator on status change (if someone else made the change)
     if (dto.status && dto.status !== ticket.status && ticket.creatorId !== requestingUser.id) {
       const isResolved = dto.status === TicketStatus.RESOLVED;
       this.notificationsService.createNotification({
@@ -228,7 +285,6 @@ export class TicketsService {
       }).catch(() => null);
     }
 
-    // Notify newly assigned technician
     if (dto.assignedToId && dto.assignedToId !== ticket.assignedToId && dto.assignedToId !== requestingUser.id) {
       this.notificationsService.createNotification({
         userId: dto.assignedToId,
@@ -247,8 +303,28 @@ export class TicketsService {
       throw new ForbiddenException('Only admins can delete tickets');
     }
 
-    await this.findOne(id, requestingUser);
-    await this.prisma.ticket.delete({ where: { id } });
+    const ticket = await this.findOne(id, requestingUser);
+
+    await this.prisma.$transaction(async (tx) => {
+      // Audit log is created first (with no ticketId since the FK cascades to NULL on delete)
+      await tx.auditLog.create({
+        data: {
+          action: 'TICKET_DELETED',
+          entity: 'Ticket',
+          entityId: id,
+          oldValues: {
+            ticketNumber: ticket.ticketNumber,
+            title: ticket.title,
+            status: ticket.status,
+            priority: ticket.priority,
+          },
+          userId: requestingUser.id,
+          companyId: requestingUser.companyId,
+        },
+      });
+      await tx.ticket.delete({ where: { id } });
+    });
+
     return { message: 'Ticket deleted successfully' };
   }
 
@@ -275,7 +351,7 @@ export class TicketsService {
       throw new ForbiddenException('Access denied');
     }
 
-    return Promise.all(
+    const attachments = await Promise.all(
       files.map(async (file) => {
         const url = await this.cloudinaryService.uploadImage(file.buffer);
         return this.prisma.attachment.create({
@@ -290,6 +366,23 @@ export class TicketsService {
         });
       }),
     );
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'ATTACHMENT_UPLOADED',
+        entity: 'Ticket',
+        entityId: ticketId,
+        newValues: {
+          count: attachments.length,
+          files: attachments.map((a) => a.originalName),
+        },
+        userId: requestingUser.id,
+        companyId: requestingUser.companyId,
+        ticketId,
+      },
+    });
+
+    return attachments;
   }
 
   private getTicketIncludes() {

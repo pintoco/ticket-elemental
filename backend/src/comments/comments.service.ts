@@ -42,13 +42,23 @@ export class CommentsService {
       },
     });
 
-    // Update ticket updatedAt
     await this.prisma.ticket.update({
       where: { id: ticketId },
       data: { updatedAt: new Date() },
     });
 
-    // Notify ticket creator and assignee (excluding the commenter)
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'COMMENT_CREATED',
+        entity: 'TicketComment',
+        entityId: comment.id,
+        newValues: { isInternal: comment.isInternal },
+        userId: requestingUser.id,
+        companyId: requestingUser.companyId,
+        ticketId,
+      },
+    });
+
     const notifyIds = new Set<string>();
     if (ticket.creatorId !== requestingUser.id) notifyIds.add(ticket.creatorId);
     if (ticket.assignedToId && ticket.assignedToId !== requestingUser.id) notifyIds.add(ticket.assignedToId);
@@ -80,7 +90,6 @@ export class CommentsService {
 
     const where: any = { ticketId };
 
-    // Clients can't see internal notes
     if (requestingUser.role === UserRole.CLIENT || requestingUser.role === UserRole.OPERATOR) {
       where.isInternal = false;
     }
@@ -101,6 +110,13 @@ export class CommentsService {
       include: { ticket: true },
     });
     if (!comment) throw new NotFoundException('Comment not found');
+
+    if (
+      requestingUser.role !== UserRole.SUPER_ADMIN &&
+      comment.ticket.companyId !== requestingUser.companyId
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
 
     if (
       comment.authorId !== requestingUser.id &&
@@ -132,7 +148,7 @@ export class CommentsService {
       throw new ForbiddenException('Access denied');
     }
 
-    return Promise.all(
+    const attachments = await Promise.all(
       files.map(async (file) => {
         const url = await this.cloudinaryService.uploadImage(file.buffer);
         return this.prisma.attachment.create({
@@ -147,11 +163,38 @@ export class CommentsService {
         });
       }),
     );
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'ATTACHMENT_UPLOADED',
+        entity: 'TicketComment',
+        entityId: commentId,
+        newValues: {
+          count: attachments.length,
+          files: attachments.map((a) => a.originalName),
+        },
+        userId: requestingUser.id,
+        companyId: requestingUser.companyId,
+        ticketId: comment.ticketId,
+      },
+    });
+
+    return attachments;
   }
 
   async remove(id: string, requestingUser: any) {
-    const comment = await this.prisma.ticketComment.findUnique({ where: { id } });
+    const comment = await this.prisma.ticketComment.findUnique({
+      where: { id },
+      include: { ticket: true },
+    });
     if (!comment) throw new NotFoundException('Comment not found');
+
+    if (
+      requestingUser.role !== UserRole.SUPER_ADMIN &&
+      comment.ticket.companyId !== requestingUser.companyId
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
 
     if (
       comment.authorId !== requestingUser.id &&
@@ -160,6 +203,18 @@ export class CommentsService {
     ) {
       throw new ForbiddenException('Cannot delete this comment');
     }
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'COMMENT_DELETED',
+        entity: 'TicketComment',
+        entityId: id,
+        oldValues: { authorId: comment.authorId, isInternal: comment.isInternal },
+        userId: requestingUser.id,
+        companyId: requestingUser.companyId,
+        ticketId: comment.ticketId,
+      },
+    });
 
     await this.prisma.ticketComment.delete({ where: { id } });
     return { message: 'Comment deleted' };

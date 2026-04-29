@@ -8,12 +8,33 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
+function validateEnv(configService: ConfigService) {
+  const jwtSecret = configService.get<string>('JWT_SECRET');
+  const jwtRefreshSecret = configService.get<string>('JWT_REFRESH_SECRET');
+
+  if (!jwtSecret || jwtSecret.length < 32) {
+    throw new Error(
+      'JWT_SECRET debe estar configurado y tener al menos 32 caracteres. ' +
+      'Configura esta variable de entorno antes de iniciar el servidor.',
+    );
+  }
+  if (!jwtRefreshSecret || jwtRefreshSecret.length < 32) {
+    throw new Error(
+      'JWT_REFRESH_SECRET debe estar configurado y tener al menos 32 caracteres. ' +
+      'Configura esta variable de entorno antes de iniciar el servidor.',
+    );
+  }
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
 
   const configService = app.get(ConfigService);
+
+  validateEnv(configService);
+
   const port = configService.get<number>('PORT', 3001);
   const frontendUrl = configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
   const allowedOrigins = [

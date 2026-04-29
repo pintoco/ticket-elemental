@@ -307,7 +307,7 @@ Al crear un ticket, el sistema envía un email automático a:
 
 ## Notas de implementación conocidas
 
-- `prisma db push` en lugar de `prisma migrate deploy` porque no hay archivos de migración generados
+- Se usa `prisma migrate deploy` (no `prisma db push`). La migración inicial está en `backend/prisma/migrations/20240101000000_init/migration.sql`. Para bases de datos existentes creadas con `db push` (como el Railway actual), ejecutar una sola vez: `docker exec ticket_backend npx prisma migrate resolve --applied 20240101000000_init` para marcar la migración como ya aplicada sin re-ejecutar el SQL.
 - El `slug` de empresa no se puede modificar una vez creado (no está en `UpdateCompanyDto`)
 - Los comentarios internos (`isInternal: true`) solo los ven SUPER_ADMIN, ADMIN y TECHNICIAN
 - `NEXT_PUBLIC_API_URL` se baja en build time en Next.js — el default `http://localhost:3001` es correcto para desarrollo local con Docker porque el browser accede desde el host

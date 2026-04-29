@@ -7,18 +7,22 @@ import { CommentsService } from './comments.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
+const ALLOWED_MIME = /^(image\/(jpeg|jpg|png|webp)|application\/pdf)$/;
+
 @Module({
   imports: [
     MulterModule.register({
       storage: memoryStorage(),
-      fileFilter: (req, file, cb) => {
-        if (!file.mimetype.match(/^image\/(jpeg|jpg|png|webp|gif)$/)) {
-          cb(new BadRequestException('Solo se permiten imágenes (jpg, png, webp, gif)') as any, false);
-        } else {
-          cb(null, true);
+      fileFilter: (_req, file, cb) => {
+        if (!ALLOWED_MIME.test(file.mimetype)) {
+          return cb(
+            new BadRequestException('Solo se permiten imágenes (jpg, png, webp) y archivos PDF'),
+            false,
+          );
         }
+        cb(null, true);
       },
-      limits: { fileSize: 5 * 1024 * 1024 },
+      limits: { fileSize: 10 * 1024 * 1024, files: 5 },
     }),
     NotificationsModule,
     CloudinaryModule,
