@@ -10,7 +10,13 @@
       "Bash(grep -E \"^\\(jest|ts-jest\\)$\")",
       "Bash(sed -i 's/\\\\${POSTGRES_PASSWORD:-ticket_pass_2024}/${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}/g; s/- .5432:5432./- \"127.0.0.1:5432:5432\"/; s/- .6379:6379./- \"127.0.0.1:6379:6379\"/' docker-compose.yml)",
       "Bash(perl -0pi -e 's/async function main\\\\\\(\\\\\\) \\\\{\\\\n/async function main\\(\\) {\\\\n  if \\(process.env.NODE_ENV === \\\\x27production\\\\x27 \\\\&\\\\& process.env.ALLOW_SEED !== \\\\x27true\\\\x27\\) {\\\\n    throw new Error\\(\\\\x27Seed bloqueado en producción \\(credenciales de prueba\\). Usa ALLOW_SEED=true solo si estás seguro.\\\\x27\\);\\\\n  }\\\\n/' backend/prisma/seed.ts)",
-      "Bash(npm i *)"
+      "Bash(npm i *)",
+      "Bash(DATABASE_URL=postgresql://test:test@127.0.0.1:5440/ticket_test npx prisma migrate status)",
+      "Bash(grep -v \"^\\\\s*$\")",
+      "Bash(perl -0pi -e ' *)",
+      "Bash(sed -i 's/const concurrent = 5;/const concurrent = 10;/' test/ticket-number.e2e-spec.ts)",
+      "Bash(npm uninstall *)",
+      "Bash(node -e 'let s=\"\";process.stdin.on\\(\"data\",d=>s+=d\\).on\\(\"end\",\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\(j.metadata.vulnerabilities\\);for\\(const [k,v] of Object.entries\\(j.vulnerabilities\\)\\)if\\([\"high\",\"critical\"].includes\\(v.severity\\)\\)console.log\\(v.severity,k,v.fixAvailable&&\\(v.fixAvailable.name||v.fixAvailable\\)\\)}\\)')"
     ]
   }
 }

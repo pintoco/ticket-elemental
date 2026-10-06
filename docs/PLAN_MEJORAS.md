@@ -27,12 +27,12 @@ Marcar `[x]` al completar. La numeración `(N)` referencia los hallazgos de la r
 - [x] Tests unitarios de regresión (22 tests: acceso, escape HTML, tickets, users) (24)
 
 ## Etapa 2: Tests y CI
-- [ ] Tests e2e de aislamiento multi-tenant (24)
-- [ ] Tests de matriz de roles (tickets, comentarios, usuarios, activos)
-- [ ] Test de concurrencia de `ticketNumber`
-- [ ] GitHub Actions: lint, build, tests (28)
-- [ ] `npm audit` en CI; quitar `nodemailer` si no se usa
-- [ ] Husky + lint-staged
+- [x] Tests e2e de aislamiento multi-tenant (24) — `backend/test/access-control.e2e-spec.ts`
+- [x] Tests de matriz de roles (tickets, comentarios, usuarios, activos, empresas)
+- [x] Test de concurrencia de `ticketNumber` (10 simultáneos) — destapó 500 bajo concurrencia, corregido con advisory lock
+- [x] GitHub Actions: typecheck, build, unit + e2e con Postgres, build frontend (28) — falta lint (Etapa 0)
+- [x] `npm audit` en CI (informativo) y `nodemailer` eliminado — 17 vulnerabilidades heredadas (1 crítica, 4 altas: multer, platform-express, proxy-addr); requieren subir NestJS, pendiente
+- [x] Hook pre-commit nativo (`.githooks`, activar con `sh scripts/setup-hooks.sh`): tsc + tests relacionados
 
 ## Etapa 3: Base de datos y rendimiento
 - [ ] Índices: Ticket `(companyId,status)`, `assignedToId`, `creatorId`, `createdAt`; TicketComment `ticketId`; Notification `(userId,isRead)`; AuditLog `(companyId,createdAt)`; Attachment `ticketId`, `commentId` (10)

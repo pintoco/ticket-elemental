@@ -1,0 +1,14 @@
+#!/bin/sh
+# Pre-commit: type check y tests relacionados con los archivos del backend modificados.
+# Activar con: sh scripts/setup-hooks.sh
+
+staged=$(git diff --cached --name-only --diff-filter=ACM | grep '^backend/src/.*\.ts$')
+[ -z "$staged" ] && exit 0
+
+cd backend || exit 1
+echo "pre-commit: tsc --noEmit"
+npx tsc --noEmit || exit 1
+
+files=$(echo "$staged" | sed 's#^backend/##')
+echo "pre-commit: tests relacionados"
+npx jest --findRelatedTests $files --passWithNoTests || exit 1

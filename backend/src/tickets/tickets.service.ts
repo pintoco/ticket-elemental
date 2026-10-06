@@ -27,8 +27,10 @@ export class TicketsService {
   ) {}
 
   // Generates the next ticketNumber atomically inside a transaction.
-  // Uses Serializable isolation in create() to prevent duplicates under concurrency.
+  // A transaction-scoped advisory lock serializes number generation across concurrent requests
+  // (released automatically on commit/rollback), so MAX()+1 never hands out duplicates.
   private async generateTicketNumber(tx: Prisma.TransactionClient): Promise<string> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('ticket_number'))`;
     const year = new Date().getFullYear();
     const prefix = `EP-${year}-`;
     const result = await tx.$queryRaw<Array<{ next_seq: number }>>`
@@ -80,8 +82,7 @@ export class TicketsService {
     const slaHours = dto.slaHours || slaDefs[dto.priority] || 8;
 
     let ticket: any;
-    // Retry loop handles rare Serializable conflicts (P2034) and
-    // unique-constraint races (P2002) on ticketNumber
+    // Safety net: retry on lock/serialization conflicts (P2034) and unique races (P2002)
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         ticket = await this.prisma.$transaction(async (tx) => {
@@ -131,7 +132,7 @@ export class TicketsService {
           });
 
           return created;
-        }, { isolationLevel: 'Serializable' });
+        });
 
         break;
       } catch (e: any) {
