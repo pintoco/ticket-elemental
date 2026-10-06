@@ -4,6 +4,9 @@ import * as bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED !== 'true') {
+    throw new Error('Seed bloqueado en producción (credenciales de prueba). Usa ALLOW_SEED=true solo si estás seguro.');
+  }
   console.log('🌱 Seeding Elemental Pro Help Desk database...\n');
 
   // ============================================

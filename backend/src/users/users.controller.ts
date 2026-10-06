@@ -16,6 +16,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './dto/create-user.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { AuthUser } from '../common/types/auth-user';
 
 @ApiTags('users')
 @ApiBearerAuth('access-token')
@@ -26,7 +27,7 @@ export class UsersController {
   @Post()
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a new user' })
-  create(@Body() dto: CreateUserDto, @CurrentUser() user: any) {
+  create(@Body() dto: CreateUserDto, @CurrentUser() user: AuthUser) {
     return this.usersService.create(dto, user);
   }
 
@@ -34,7 +35,7 @@ export class UsersController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @ApiOperation({ summary: 'Get all users' })
   findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
     @Query('companyId') companyId?: string,
     @Query('role') role?: UserRole,
     @Query('isActive') isActive?: boolean,
@@ -44,13 +45,13 @@ export class UsersController {
 
   @Get('technicians')
   @ApiOperation({ summary: 'Get technicians for ticket assignment' })
-  getTechnicians(@CurrentUser() user: any, @Query('companyId') companyId?: string) {
+  getTechnicians(@CurrentUser() user: AuthUser, @Query('companyId') companyId?: string) {
     return this.usersService.getTechnicians(companyId, user);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a user by ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.usersService.findOne(id, user);
   }
 
@@ -59,7 +60,7 @@ export class UsersController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.usersService.update(id, dto, user);
   }
@@ -69,7 +70,7 @@ export class UsersController {
   changePassword(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ChangePasswordDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.usersService.changePassword(id, dto, user);
   }
@@ -77,7 +78,7 @@ export class UsersController {
   @Delete(':id')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @ApiOperation({ summary: 'Deactivate a user' })
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.usersService.remove(id, user);
   }
 }

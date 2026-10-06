@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { AuthUser } from '../common/types/auth-user';
+import { INTERNAL_NOTE_ROLES, assertTicketAccess } from '../common/access/ticket-access';
 
 @Injectable()
 export class CommentsService {
@@ -13,21 +15,16 @@ export class CommentsService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  async create(ticketId: string, dto: CreateCommentDto, requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
+  async create(ticketId: string, dto: CreateCommentDto, requestingUser: AuthUser, meta?: { ip?: string; userAgent?: string }) {
     const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) throw new NotFoundException('Ticket not found');
 
-    if (
-      requestingUser.role !== UserRole.SUPER_ADMIN &&
-      ticket.companyId !== requestingUser.companyId
-    ) {
-      throw new ForbiddenException('Access denied');
-    }
+    assertTicketAccess(ticket, requestingUser);
 
     // Only techs/admins can post internal notes
     const isInternal =
       dto.isInternal &&
-      [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TECHNICIAN].includes(requestingUser.role);
+      INTERNAL_NOTE_ROLES.includes(requestingUser.role);
 
     const comment = await this.prisma.ticketComment.create({
       data: {
@@ -79,20 +76,15 @@ export class CommentsService {
     return comment;
   }
 
-  async findByTicket(ticketId: string, requestingUser: any) {
+  async findByTicket(ticketId: string, requestingUser: AuthUser) {
     const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) throw new NotFoundException('Ticket not found');
 
-    if (
-      requestingUser.role !== UserRole.SUPER_ADMIN &&
-      ticket.companyId !== requestingUser.companyId
-    ) {
-      throw new ForbiddenException('Access denied');
-    }
+    assertTicketAccess(ticket, requestingUser);
 
     const where: any = { ticketId };
 
-    if (requestingUser.role === UserRole.CLIENT || requestingUser.role === UserRole.OPERATOR) {
+    if (!INTERNAL_NOTE_ROLES.includes(requestingUser.role)) {
       where.isInternal = false;
     }
 
@@ -106,19 +98,14 @@ export class CommentsService {
     });
   }
 
-  async update(id: string, content: string, requestingUser: any) {
+  async update(id: string, content: string, requestingUser: AuthUser) {
     const comment = await this.prisma.ticketComment.findUnique({
       where: { id },
       include: { ticket: true },
     });
     if (!comment) throw new NotFoundException('Comment not found');
 
-    if (
-      requestingUser.role !== UserRole.SUPER_ADMIN &&
-      comment.ticket.companyId !== requestingUser.companyId
-    ) {
-      throw new ForbiddenException('Access denied');
-    }
+    assertTicketAccess(comment.ticket, requestingUser);
 
     if (
       comment.authorId !== requestingUser.id &&
@@ -136,7 +123,7 @@ export class CommentsService {
     });
   }
 
-  async addAttachments(commentId: string, files: Express.Multer.File[], requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
+  async addAttachments(commentId: string, files: Express.Multer.File[], requestingUser: AuthUser, meta?: { ip?: string; userAgent?: string }) {
     if (!files || files.length === 0) return [];
 
     const comment = await this.prisma.ticketComment.findUnique({
@@ -145,12 +132,7 @@ export class CommentsService {
     });
     if (!comment) throw new NotFoundException('Comment not found');
 
-    if (
-      requestingUser.role !== UserRole.SUPER_ADMIN &&
-      comment.ticket.companyId !== requestingUser.companyId
-    ) {
-      throw new ForbiddenException('Access denied');
-    }
+    assertTicketAccess(comment.ticket, requestingUser);
 
     const attachments = await Promise.all(
       files.map(async (file) => {
@@ -189,19 +171,14 @@ export class CommentsService {
     return attachments;
   }
 
-  async remove(id: string, requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
+  async remove(id: string, requestingUser: AuthUser, meta?: { ip?: string; userAgent?: string }) {
     const comment = await this.prisma.ticketComment.findUnique({
       where: { id },
       include: { ticket: true },
     });
     if (!comment) throw new NotFoundException('Comment not found');
 
-    if (
-      requestingUser.role !== UserRole.SUPER_ADMIN &&
-      comment.ticket.companyId !== requestingUser.companyId
-    ) {
-      throw new ForbiddenException('Access denied');
-    }
+    assertTicketAccess(comment.ticket, requestingUser);
 
     if (
       comment.authorId !== requestingUser.id &&

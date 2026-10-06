@@ -2,8 +2,15 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Prisma, TicketStatus, UserRole } from '@prisma/client';
+import { AuthUser } from '../common/types/auth-user';
+import {
+  INTERNAL_NOTE_ROLES,
+  assertTicketAccess,
+  ticketAccessWhere,
+} from '../common/access/ticket-access';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -33,12 +40,41 @@ export class TicketsService {
     return `${prefix}${String(seq).padStart(5, '0')}`;
   }
 
-  async create(dto: CreateTicketDto, requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
+  // Assignee must be an active Elemental Pro technician; asset must belong to the ticket's company.
+  private async validateRelations(
+    companyId: string,
+    assignedToId?: string | null,
+    assetId?: string | null,
+  ) {
+    if (assignedToId) {
+      const assignee = await this.prisma.user.findUnique({
+        where: { id: assignedToId },
+        select: { role: true, isActive: true },
+      });
+      const validRoles: UserRole[] = [UserRole.TECHNICIAN, UserRole.SUPER_ADMIN];
+      if (!assignee || !assignee.isActive || !validRoles.includes(assignee.role)) {
+        throw new BadRequestException('El usuario asignado no es un técnico válido');
+      }
+    }
+    if (assetId) {
+      const asset = await this.prisma.asset.findUnique({
+        where: { id: assetId },
+        select: { companyId: true },
+      });
+      if (!asset || asset.companyId !== companyId) {
+        throw new BadRequestException('El activo no pertenece a la empresa del ticket');
+      }
+    }
+  }
+
+  async create(dto: CreateTicketDto, requestingUser: AuthUser, meta?: { ip?: string; userAgent?: string }) {
     const companyId = dto.companyId || requestingUser.companyId;
 
     if (requestingUser.role !== UserRole.SUPER_ADMIN && companyId !== requestingUser.companyId) {
       throw new ForbiddenException('Cannot create tickets for other companies');
     }
+
+    await this.validateRelations(companyId, dto.assignedToId, dto.assetId);
 
     const slaDefs: Record<string, number> = { CRITICAL: 2, HIGH: 4, MEDIUM: 8, LOW: 24 };
     const slaHours = dto.slaHours || slaDefs[dto.priority] || 8;
@@ -53,7 +89,17 @@ export class TicketsService {
 
           const created = await tx.ticket.create({
             data: {
-              ...dto,
+              title: dto.title,
+              description: dto.description,
+              priority: dto.priority,
+              type: dto.type,
+              category: dto.category,
+              location: dto.location,
+              cameraId: dto.cameraId,
+              ipAddress: dto.ipAddress,
+              assignedToId: dto.assignedToId,
+              assetId: dto.assetId,
+              tags: dto.tags,
               companyId,
               creatorId: requestingUser.id,
               ticketNumber,
@@ -108,20 +154,14 @@ export class TicketsService {
     return ticket;
   }
 
-  async findAll(filters: TicketFilterDto, requestingUser: any) {
+  async findAll(filters: TicketFilterDto, requestingUser: AuthUser) {
     const { page = 1, limit = 20, search, dateFrom, dateTo, ...rest } = filters;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = ticketAccessWhere(requestingUser);
 
-    if (requestingUser.role !== UserRole.SUPER_ADMIN) {
-      where.companyId = requestingUser.companyId;
-    } else if (rest.companyId) {
+    if (requestingUser.role === UserRole.SUPER_ADMIN && rest.companyId) {
       where.companyId = rest.companyId;
-    }
-
-    if (requestingUser.role === UserRole.TECHNICIAN) {
-      where.assignedToId = requestingUser.id;
     }
 
     if (rest.status) where.status = rest.status;
@@ -170,12 +210,14 @@ export class TicketsService {
     };
   }
 
-  async findOne(id: string, requestingUser: any) {
+  async findOne(id: string, requestingUser: AuthUser) {
+    const canSeeInternal = INTERNAL_NOTE_ROLES.includes(requestingUser.role);
     const ticket = await this.prisma.ticket.findUnique({
       where: { id },
       include: {
         ...this.getTicketIncludes(),
         comments: {
+          where: canSeeInternal ? undefined : { isInternal: false },
           include: {
             author: { select: { id: true, firstName: true, lastName: true, role: true, avatar: true } },
             attachments: true,
@@ -193,17 +235,12 @@ export class TicketsService {
 
     if (!ticket) throw new NotFoundException('Ticket not found');
 
-    if (
-      requestingUser.role !== UserRole.SUPER_ADMIN &&
-      ticket.companyId !== requestingUser.companyId
-    ) {
-      throw new ForbiddenException('Access denied');
-    }
+    assertTicketAccess(ticket, requestingUser);
 
     return ticket;
   }
 
-  async update(id: string, dto: UpdateTicketDto, requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
+  async update(id: string, dto: UpdateTicketDto, requestingUser: AuthUser, meta?: { ip?: string; userAgent?: string }) {
     const ticket = await this.findOne(id, requestingUser);
 
     const canEdit =
@@ -214,7 +251,23 @@ export class TicketsService {
 
     if (!canEdit) throw new ForbiddenException('Cannot edit this ticket');
 
-    const updateData: any = { ...dto };
+    await this.validateRelations(ticket.companyId, dto.assignedToId, dto.assetId);
+
+    const updateData: Prisma.TicketUncheckedUpdateInput = {
+      title: dto.title,
+      description: dto.description,
+      status: dto.status,
+      priority: dto.priority,
+      type: dto.type,
+      category: dto.category,
+      location: dto.location,
+      cameraId: dto.cameraId,
+      ipAddress: dto.ipAddress,
+      slaHours: dto.slaHours,
+      assignedToId: dto.assignedToId,
+      assetId: dto.assetId,
+      tags: dto.tags,
+    };
 
     if (dto.status === TicketStatus.ON_SITE && !(ticket as any).onSiteAt) {
       updateData.onSiteAt = new Date();
@@ -302,7 +355,7 @@ export class TicketsService {
     return updated;
   }
 
-  async remove(id: string, requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
+  async remove(id: string, requestingUser: AuthUser, meta?: { ip?: string; userAgent?: string }) {
     if (requestingUser.role !== UserRole.SUPER_ADMIN && requestingUser.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Only admins can delete tickets');
     }
@@ -334,7 +387,7 @@ export class TicketsService {
     return { message: 'Ticket deleted successfully' };
   }
 
-  async getMyTickets(requestingUser: any) {
+  async getMyTickets(requestingUser: AuthUser) {
     const where: any = { creatorId: requestingUser.id };
     if (requestingUser.role === UserRole.TECHNICIAN) {
       where.assignedToId = requestingUser.id;
@@ -349,15 +402,13 @@ export class TicketsService {
     });
   }
 
-  async addAttachments(ticketId: string, files: Express.Multer.File[], requestingUser: any, meta?: { ip?: string; userAgent?: string }) {
+  async addAttachments(ticketId: string, files: Express.Multer.File[], requestingUser: AuthUser, meta?: { ip?: string; userAgent?: string }) {
     if (!files || files.length === 0) return [];
 
     const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) throw new NotFoundException('Ticket not found');
 
-    if (requestingUser.role !== UserRole.SUPER_ADMIN && ticket.companyId !== requestingUser.companyId) {
-      throw new ForbiddenException('Access denied');
-    }
+    assertTicketAccess(ticket, requestingUser);
 
     const attachments = await Promise.all(
       files.map(async (file) => {

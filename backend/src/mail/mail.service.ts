@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
+import { escapeHtml } from '../common/utils/escape-html';
 
 @Injectable()
 export class MailService {
@@ -82,7 +83,7 @@ export class MailService {
                   <h1 style="margin:6px 0 0;color:#ffffff;font-size:20px;">Nuevo Ticket Registrado</h1>
                 </td>
                 <td align="right">
-                  <span style="background:#1e293b;color:#94a3b8;font-family:monospace;font-size:14px;padding:8px 14px;border-radius:8px;">${ticket.ticketNumber}</span>
+                  <span style="background:#1e293b;color:#94a3b8;font-family:monospace;font-size:14px;padding:8px 14px;border-radius:8px;">${escapeHtml(ticket.ticketNumber)}</span>
                 </td>
               </tr>
             </table>
@@ -103,12 +104,12 @@ export class MailService {
           <td style="background:#ffffff;padding:32px;">
 
             <!-- Title -->
-            <h2 style="margin:0 0 8px;color:#1e293b;font-size:18px;">${ticket.title}</h2>
-            <p style="margin:0 0 24px;color:#64748b;font-size:13px;">Creado el ${createdAt} · Empresa: <strong>${ticket.company?.name ?? ''}</strong></p>
+            <h2 style="margin:0 0 8px;color:#1e293b;font-size:18px;">${escapeHtml(ticket.title)}</h2>
+            <p style="margin:0 0 24px;color:#64748b;font-size:13px;">Creado el ${createdAt} · Empresa: <strong>${escapeHtml(ticket.company?.name)}</strong></p>
 
             <!-- Description -->
             <div style="background:#f8fafc;border-left:4px solid #3b82f6;border-radius:4px;padding:16px;margin-bottom:24px;">
-              <p style="margin:0;color:#334155;font-size:14px;line-height:1.6;white-space:pre-wrap;">${ticket.description}</p>
+              <p style="margin:0;color:#334155;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(ticket.description)}</p>
             </div>
 
             <!-- Info grid -->
@@ -116,34 +117,34 @@ export class MailService {
               <tr>
                 <td width="50%" style="padding:0 8px 12px 0;vertical-align:top;">
                   <p style="margin:0 0 4px;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Creado por</p>
-                  <p style="margin:0;color:#1e293b;font-size:14px;font-weight:600;">${ticket.creator?.firstName ?? ''} ${ticket.creator?.lastName ?? ''}</p>
-                  <p style="margin:0;color:#64748b;font-size:12px;">${ticket.creator?.email ?? ''}</p>
+                  <p style="margin:0;color:#1e293b;font-size:14px;font-weight:600;">${escapeHtml(ticket.creator?.firstName)} ${escapeHtml(ticket.creator?.lastName)}</p>
+                  <p style="margin:0;color:#64748b;font-size:12px;">${escapeHtml(ticket.creator?.email)}</p>
                 </td>
                 <td width="50%" style="padding:0 0 12px 8px;vertical-align:top;">
                   <p style="margin:0 0 4px;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Técnico asignado</p>
-                  <p style="margin:0;color:#1e293b;font-size:14px;font-weight:600;">${assignedLabel}</p>
-                  ${ticket.assignedTo ? `<p style="margin:0;color:#64748b;font-size:12px;">${ticket.assignedTo.email}</p>` : ''}
+                  <p style="margin:0;color:#1e293b;font-size:14px;font-weight:600;">${escapeHtml(assignedLabel)}</p>
+                  ${ticket.assignedTo ? `<p style="margin:0;color:#64748b;font-size:12px;">${escapeHtml(ticket.assignedTo.email)}</p>` : ''}
                 </td>
               </tr>
               ${ticket.location ? `
               <tr>
                 <td colspan="2" style="padding:0 0 12px;">
                   <p style="margin:0 0 4px;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">📍 Ubicación</p>
-                  <p style="margin:0;color:#1e293b;font-size:14px;">${ticket.location}</p>
+                  <p style="margin:0;color:#1e293b;font-size:14px;">${escapeHtml(ticket.location)}</p>
                 </td>
               </tr>` : ''}
               ${ticket.cameraId ? `
               <tr>
                 <td colspan="2" style="padding:0 0 12px;">
                   <p style="margin:0 0 4px;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">📷 ID Cámara</p>
-                  <p style="margin:0;color:#1e293b;font-size:14px;font-family:monospace;">${ticket.cameraId}</p>
+                  <p style="margin:0;color:#1e293b;font-size:14px;font-family:monospace;">${escapeHtml(ticket.cameraId)}</p>
                 </td>
               </tr>` : ''}
               ${ticket.ipAddress ? `
               <tr>
                 <td colspan="2" style="padding:0 0 12px;">
                   <p style="margin:0 0 4px;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">🖥️ Dirección IP</p>
-                  <p style="margin:0;color:#1e293b;font-size:14px;font-family:monospace;">${ticket.ipAddress}</p>
+                  <p style="margin:0;color:#1e293b;font-size:14px;font-family:monospace;">${escapeHtml(ticket.ipAddress)}</p>
                 </td>
               </tr>` : ''}
               <tr>

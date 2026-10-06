@@ -8,7 +8,10 @@ import {
 import * as bcrypt from 'bcryptjs';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthUser } from '../common/types/auth-user';
 import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './dto/create-user.dto';
+
+const PRIVILEGED_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.TECHNICIAN];
 
 const USER_SELECT = {
   id: true,
@@ -30,7 +33,14 @@ const USER_SELECT = {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateUserDto, requestingUser: any) {
+  // Only SUPER_ADMIN may touch SUPER_ADMIN or TECHNICIAN accounts.
+  private assertCanManage(targetRole: UserRole, requestingUser: AuthUser) {
+    if (requestingUser.role !== UserRole.SUPER_ADMIN && PRIVILEGED_ROLES.includes(targetRole)) {
+      throw new ForbiddenException('Solo el super administrador puede gestionar técnicos y super administradores');
+    }
+  }
+
+  async create(dto: CreateUserDto, requestingUser: AuthUser) {
     // Only super admin can create users in any company
     if (requestingUser.role !== UserRole.SUPER_ADMIN && dto.companyId !== requestingUser.companyId) {
       throw new ForbiddenException('Cannot create users for other companies');
@@ -67,7 +77,7 @@ export class UsersService {
     });
   }
 
-  async findAll(requestingUser: any, filters: { companyId?: string; role?: UserRole; isActive?: boolean }) {
+  async findAll(requestingUser: AuthUser, filters: { companyId?: string; role?: UserRole; isActive?: boolean }) {
     const where: any = {};
 
     if (requestingUser.role !== UserRole.SUPER_ADMIN) {
@@ -86,7 +96,7 @@ export class UsersService {
     });
   }
 
-  async findOne(id: string, requestingUser: any) {
+  async findOne(id: string, requestingUser: AuthUser) {
     const user = await this.prisma.user.findUnique({ where: { id }, select: USER_SELECT });
     if (!user) throw new NotFoundException('User not found');
 
@@ -97,8 +107,20 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto, requestingUser: any) {
+  async update(id: string, dto: UpdateUserDto, requestingUser: AuthUser) {
     const user = await this.findOne(id, requestingUser);
+    const isSelf = id === requestingUser.id;
+    const isManager = requestingUser.role === UserRole.SUPER_ADMIN || requestingUser.role === UserRole.ADMIN;
+
+    if (!isSelf) {
+      if (!isManager) throw new ForbiddenException('Access denied');
+      this.assertCanManage(user.role, requestingUser);
+    } else if (requestingUser.role !== UserRole.SUPER_ADMIN) {
+      // Users may edit their own profile but never their own role or status.
+      if (dto.role !== undefined || dto.isActive !== undefined) {
+        throw new ForbiddenException('No puedes modificar tu propio rol o estado');
+      }
+    }
 
     if (dto.role !== undefined && requestingUser.role !== UserRole.SUPER_ADMIN) {
       if (dto.role === UserRole.SUPER_ADMIN || dto.role === UserRole.TECHNICIAN) {
@@ -114,14 +136,16 @@ export class UsersService {
       }
     }
 
+    const revokeSessions = dto.isActive === false || (dto.role !== undefined && dto.role !== user.role);
+
     return this.prisma.user.update({
       where: { id },
-      data: dto,
+      data: { ...dto, ...(revokeSessions ? { refreshToken: null } : {}) },
       select: USER_SELECT,
     });
   }
 
-  async changePassword(id: string, dto: ChangePasswordDto, requestingUser: any) {
+  async changePassword(id: string, dto: ChangePasswordDto, requestingUser: AuthUser) {
     if (id !== requestingUser.id && requestingUser.role !== UserRole.SUPER_ADMIN) {
       throw new ForbiddenException('Cannot change other user password');
     }
@@ -133,12 +157,12 @@ export class UsersService {
     if (!isValid) throw new BadRequestException('Current password is incorrect');
 
     const hashed = await bcrypt.hash(dto.newPassword, 12);
-    await this.prisma.user.update({ where: { id }, data: { password: hashed } });
+    await this.prisma.user.update({ where: { id }, data: { password: hashed, refreshToken: null } });
 
     return { message: 'Password updated successfully' };
   }
 
-  async getTechnicians(companyId: string, requestingUser: any) {
+  async getTechnicians(companyId: string, requestingUser: AuthUser) {
     const where: any = {
       role: { in: [UserRole.TECHNICIAN, UserRole.SUPER_ADMIN] },
       isActive: true,
@@ -151,9 +175,10 @@ export class UsersService {
     });
   }
 
-  async remove(id: string, requestingUser: any) {
+  async remove(id: string, requestingUser: AuthUser) {
     if (id === requestingUser.id) throw new BadRequestException('No puedes eliminar tu propia cuenta');
-    await this.findOne(id, requestingUser);
+    const target = await this.findOne(id, requestingUser);
+    this.assertCanManage(target.role, requestingUser);
 
     if (requestingUser.role === UserRole.SUPER_ADMIN) {
       const user = await this.prisma.user.findUnique({
@@ -169,7 +194,7 @@ export class UsersService {
       return { message: 'Usuario eliminado exitosamente' };
     }
 
-    await this.prisma.user.update({ where: { id }, data: { isActive: false } });
+    await this.prisma.user.update({ where: { id }, data: { isActive: false, refreshToken: null } });
     return { message: 'Usuario desactivado exitosamente' };
   }
 }

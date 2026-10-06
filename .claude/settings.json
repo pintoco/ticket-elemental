@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"ticket\\\\.\\\\|\\\\${\" src/mail/mail.service.ts)",
+      "Bash(sed -i 's/requestingUser: any/requestingUser: AuthUser/g' tickets.service.ts)",
+      "Bash(perl -0pi -e 's/    if \\\\\\(requestingUser\\\\.role !== UserRole\\\\.SUPER_ADMIN && ticket\\\\.companyId !== requestingUser\\\\.companyId\\\\\\) \\\\{\\\\n      throw new ForbiddenException\\\\\\(\\\\x27Access denied\\\\x27\\\\\\);\\\\n    \\\\}\\\\n\\\\n    const attachments/    assertTicketAccess\\(ticket, requestingUser\\);\\\\n\\\\n    const attachments/' tickets.service.ts)",
+      "Bash(sed -i 's/@CurrentUser\\(\\) user: any/@CurrentUser\\(\\) user: AuthUser/g' tickets.controller.ts)",
+      "Bash(sed -i \"s#^import { UserRole } from '@prisma/client';#import { UserRole } from '@prisma/client';\\\\nimport { AuthUser } from '../common/types/auth-user';#\" tickets.controller.ts)",
+      "Bash(perl -0pi -e 's/\\(  \\\\@MinLength\\\\\\(2\\\\\\)\\\\n\\)\\(  content: string;\\\\n  \\\\n?  \\\\@ApiPropertyOptional\\)/$1  \\\\@MaxLength\\(5000\\)\\\\n$2/' comments/dto/create-comment.dto.ts)",
+      "Bash(grep -E \"^\\(jest|ts-jest\\)$\")",
+      "Bash(sed -i 's/\\\\${POSTGRES_PASSWORD:-ticket_pass_2024}/${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}/g; s/- .5432:5432./- \"127.0.0.1:5432:5432\"/; s/- .6379:6379./- \"127.0.0.1:6379:6379\"/' docker-compose.yml)",
+      "Bash(perl -0pi -e 's/async function main\\\\\\(\\\\\\) \\\\{\\\\n/async function main\\(\\) {\\\\n  if \\(process.env.NODE_ENV === \\\\x27production\\\\x27 \\\\&\\\\& process.env.ALLOW_SEED !== \\\\x27true\\\\x27\\) {\\\\n    throw new Error\\(\\\\x27Seed bloqueado en producción \\(credenciales de prueba\\). Usa ALLOW_SEED=true solo si estás seguro.\\\\x27\\);\\\\n  }\\\\n/' backend/prisma/seed.ts)",
+      "Bash(npm i *)"
+    ]
+  }
+}

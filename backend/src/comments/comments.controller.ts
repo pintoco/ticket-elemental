@@ -3,8 +3,9 @@ import { Request } from 'express';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { CommentsService } from './comments.service';
-import { CreateCommentDto } from './dto/create-comment.dto';
+import { CreateCommentDto, UpdateCommentDto } from './dto/create-comment.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { AuthUser } from '../common/types/auth-user';
 
 @ApiTags('comments')
 @ApiBearerAuth('access-token')
@@ -17,7 +18,7 @@ export class CommentsController {
   create(
     @Param('ticketId', ParseUUIDPipe) ticketId: string,
     @Body() dto: CreateCommentDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
     @Req() req: Request,
   ) {
     return this.commentsService.create(ticketId, dto, user, { ip: req.ip, userAgent: req.get('user-agent') });
@@ -27,7 +28,7 @@ export class CommentsController {
   @ApiOperation({ summary: 'Get all comments for a ticket' })
   findByTicket(
     @Param('ticketId', ParseUUIDPipe) ticketId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.commentsService.findByTicket(ticketId, user);
   }
@@ -36,10 +37,10 @@ export class CommentsController {
   @ApiOperation({ summary: 'Update a comment' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body('content') content: string,
-    @CurrentUser() user: any,
+    @Body() dto: UpdateCommentDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.commentsService.update(id, content, user);
+    return this.commentsService.update(id, dto.content, user);
   }
 
   @Post(':id/attachments')
@@ -50,7 +51,7 @@ export class CommentsController {
     @Param('ticketId', ParseUUIDPipe) ticketId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFiles() files: Express.Multer.File[],
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
     @Req() req: Request,
   ) {
     return this.commentsService.addAttachments(id, files, user, { ip: req.ip, userAgent: req.get('user-agent') });
@@ -58,7 +59,7 @@ export class CommentsController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a comment' })
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any, @Req() req: Request) {
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser, @Req() req: Request) {
     return this.commentsService.remove(id, user, { ip: req.ip, userAgent: req.get('user-agent') });
   }
 }
