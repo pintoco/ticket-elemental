@@ -16,7 +16,8 @@
       "Bash(perl -0pi -e ' *)",
       "Bash(sed -i 's/const concurrent = 5;/const concurrent = 10;/' test/ticket-number.e2e-spec.ts)",
       "Bash(npm uninstall *)",
-      "Bash(node -e 'let s=\"\";process.stdin.on\\(\"data\",d=>s+=d\\).on\\(\"end\",\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\(j.metadata.vulnerabilities\\);for\\(const [k,v] of Object.entries\\(j.vulnerabilities\\)\\)if\\([\"high\",\"critical\"].includes\\(v.severity\\)\\)console.log\\(v.severity,k,v.fixAvailable&&\\(v.fixAvailable.name||v.fixAvailable\\)\\)}\\)')"
+      "Bash(node -e 'let s=\"\";process.stdin.on\\(\"data\",d=>s+=d\\).on\\(\"end\",\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\(j.metadata.vulnerabilities\\);for\\(const [k,v] of Object.entries\\(j.vulnerabilities\\)\\)if\\([\"high\",\"critical\"].includes\\(v.severity\\)\\)console.log\\(v.severity,k,v.fixAvailable&&\\(v.fixAvailable.name||v.fixAvailable\\)\\)}\\)')",
+      "Bash(curl -s \"https://api.github.com/repos/pintoco/ticket-elemental/actions/runs?branch=develop&per_page=1\")"
     ]
   }
 }

@@ -15,11 +15,11 @@ async function main() {
   console.log('📦 Creating companies...');
 
   const elementalPro = await prisma.company.upsert({
-    where: { slug: 'elemental-pro' },
+    where: { slug: 'elementalpro' },
     update: {},
     create: {
       name: 'Elemental Pro',
-      slug: 'elemental-pro',
+      slug: 'elementalpro',
       description: 'Empresa principal de tecnología: redes, CCTV, fibra óptica y soporte TI',
       email: 'contacto@elementalpro.cl',
       phone: '+56 51 234 5678',
